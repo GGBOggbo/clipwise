@@ -9,3 +9,13 @@ test-results/
 .DS_Store
 *.tsbuildinfo
 work/
+
+# Phase 2 后端
+infra/postgres/data/
+storage/
+services/worker/.venv/
+services/worker/__pycache__/
+**/__pycache__/
+*.pyc
+outputs/
+
