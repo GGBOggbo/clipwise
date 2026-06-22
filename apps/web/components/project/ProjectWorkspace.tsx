@@ -1,10 +1,18 @@
 "use client";
 
-import type { ClipwiseProject } from "@clipwise/shared";
+import { useCallback, useState } from "react";
+import type {
+  ClipCandidate,
+  ClipwiseProject,
+  PreviewStatus,
+} from "@clipwise/shared";
 import { useProjectWorkspace } from "@/features/project-state/useProjectWorkspace";
 import { CandidateList } from "./CandidateList";
+import { EditorTabs } from "./EditorTabs";
+import { LocalVideoPlayer } from "./LocalVideoPlayer";
 import { ProjectHeader } from "./ProjectHeader";
 import { ProjectProgress } from "./ProjectProgress";
+import { ProjectStateView } from "./ProjectStateView";
 import styles from "./ProjectWorkspace.module.css";
 
 type ProjectWorkspaceProps = {
@@ -13,7 +21,17 @@ type ProjectWorkspaceProps = {
 
 export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
   const workspace = useProjectWorkspace(initialProject);
+  const [localFile, setLocalFile] = useState<File | null>(null);
   const candidate = workspace.selectedCandidate;
+
+  const changePreviewStatus = useCallback(
+    (status: PreviewStatus) => {
+      if (workspace.selectedCandidateId) {
+        workspace.updatePreviewStatus(workspace.selectedCandidateId, status);
+      }
+    },
+    [workspace],
+  );
 
   function selectCandidate(id: string) {
     workspace.setSelectedCandidateId(id);
@@ -29,6 +47,14 @@ export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
     );
   }
 
+  function changeCandidate(nextCandidate: ClipCandidate) {
+    workspace.updateCandidate(nextCandidate);
+  }
+
+  if (workspace.project.status !== "ready") {
+    return <ProjectStateView status={workspace.project.status} />;
+  }
+
   return (
     <div className={styles.shell}>
       <ProjectHeader />
@@ -36,28 +62,25 @@ export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
 
       <main className={styles.workspace}>
         <section className={styles.leftPanel}>
-          <div className={styles.player}>
-            {candidate ? (
-              <div className={styles.playerSelected}>
-                <span>当前片段</span>
-                <strong>{candidate.selectedTitle}</strong>
-                <p>尚未预览</p>
-                <button type="button">播放该片段</button>
-              </div>
-            ) : (
-              <div className={styles.playerEmpty}>
-                <span aria-hidden="true">▶</span>
-                <p>从右侧选择一个候选片段，开始预览和编辑。</p>
-              </div>
-            )}
-          </div>
+          <LocalVideoPlayer
+            candidate={candidate}
+            file={localFile}
+            onFileChange={setLocalFile}
+            onPreviewStatusChange={changePreviewStatus}
+          />
 
           <div className={styles.clipInfo}>
             {candidate ? (
               <>
                 <div>
                   <span>{candidate.type}</span>
-                  <span>尚未预览</span>
+                  <span>
+                    {candidate.previewStatus === "previewed"
+                      ? "已预览"
+                      : candidate.previewStatus === "previewing"
+                        ? "预览中"
+                        : "尚未预览"}
+                  </span>
                 </div>
                 <strong>{candidate.selectedTitle}</strong>
               </>
@@ -66,30 +89,14 @@ export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
             )}
           </div>
 
-          <nav className={styles.tabs} aria-label="片段编辑">
-            <button className={styles.tabActive} type="button">
-              文案
-            </button>
-            <button type="button">字幕</button>
-            <button type="button">导出</button>
-          </nav>
-
-          <div className={styles.editor}>
-            {candidate ? (
-              <div className={styles.editorPreview}>
-                <label>
-                  标题
-                  <input value={candidate.selectedTitle} readOnly />
-                </label>
-                <label>
-                  摘要
-                  <textarea value={candidate.summary} readOnly />
-                </label>
-              </div>
-            ) : (
-              <p>选择一个候选片段后即可编辑文案。</p>
-            )}
-          </div>
+          <EditorTabs
+            candidate={candidate}
+            videoConnected={Boolean(localFile)}
+            onCandidateChange={changeCandidate}
+            onRequestPreview={() => {
+              if (candidate) previewCandidate(candidate.id);
+            }}
+          />
         </section>
 
         <CandidateList

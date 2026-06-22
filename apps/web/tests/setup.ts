@@ -5,3 +5,11 @@ import { afterEach } from "vitest";
 afterEach(() => {
   cleanup();
 });
+
+if (!URL.createObjectURL) {
+  URL.createObjectURL = () => "blob:clipwise-test";
+}
+
+if (!URL.revokeObjectURL) {
+  URL.revokeObjectURL = () => undefined;
+}

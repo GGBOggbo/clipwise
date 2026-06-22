@@ -1,0 +1,158 @@
+.tabs {
+  min-height: 47px;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.tabs button {
+  padding: 0 24px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--color-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.tabs .active {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.saveStatus {
+  margin-left: auto;
+  padding: 0 22px;
+  display: flex;
+  align-items: center;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.content {
+  min-height: 210px;
+  max-height: 42%;
+  padding: 24px 28px;
+  overflow: auto;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.form {
+  display: grid;
+  gap: 16px;
+}
+
+.form label {
+  display: grid;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.form input,
+.form textarea,
+.subtitleLine textarea {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: white;
+}
+
+.form textarea {
+  min-height: 62px;
+  resize: vertical;
+}
+
+.readOnly {
+  display: grid;
+  gap: 5px;
+}
+
+.readOnly h3 {
+  margin-top: 8px;
+  color: var(--color-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.subtitleList {
+  display: grid;
+}
+
+.subtitleLine {
+  padding: 9px 0;
+  display: grid;
+  grid-template-columns: 118px 1fr;
+  gap: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.subtitleLine time {
+  padding-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.subtitleLine textarea {
+  min-height: 40px;
+  resize: vertical;
+}
+
+.exportPanel {
+  display: grid;
+  gap: 22px;
+}
+
+.exportPanel section h3 {
+  margin-bottom: 5px;
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.exportPanel section p {
+  margin-bottom: 10px;
+}
+
+.exportPanel button,
+.stateView button,
+.stateView a {
+  width: fit-content;
+  padding: 8px 15px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  cursor: pointer;
+}
+
+.exportPanel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.confirm,
+.stageNotice {
+  padding: 14px;
+  border: 1px solid oklch(84% 0.07 70);
+  border-radius: 10px;
+  color: oklch(36% 0.08 70);
+  background: oklch(97% 0.025 70);
+}
+
+.confirm div {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.stateView {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}

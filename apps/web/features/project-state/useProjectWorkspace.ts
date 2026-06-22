@@ -1,7 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ClipwiseProject } from "@clipwise/shared";
+import type {
+  ClipCandidate,
+  ClipwiseProject,
+  PreviewStatus,
+} from "@clipwise/shared";
 
 export type CandidateSort = "rank" | "time";
 
@@ -29,6 +33,24 @@ export function useProjectWorkspace(initialProject: ClipwiseProject) {
   const selectedCandidate =
     project.candidates.find(({ id }) => id === selectedCandidateId) ?? null;
 
+  function updateCandidate(candidate: ClipCandidate) {
+    setProject((current) => ({
+      ...current,
+      candidates: current.candidates.map((item) =>
+        item.id === candidate.id ? candidate : item,
+      ),
+    }));
+  }
+
+  function updatePreviewStatus(id: string, previewStatus: PreviewStatus) {
+    setProject((current) => ({
+      ...current,
+      candidates: current.candidates.map((candidate) =>
+        candidate.id === id ? { ...candidate, previewStatus } : candidate,
+      ),
+    }));
+  }
+
   return {
     project,
     setProject,
@@ -42,5 +64,7 @@ export function useProjectWorkspace(initialProject: ClipwiseProject) {
     setSort,
     showAll,
     setShowAll,
+    updateCandidate,
+    updatePreviewStatus,
   };
 }
