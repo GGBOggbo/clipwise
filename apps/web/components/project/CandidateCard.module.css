@@ -1,0 +1,134 @@
+.card {
+  padding: 15px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.card + .card {
+  margin-top: 10px;
+}
+
+.selected {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.meta div {
+  display: flex;
+  gap: 6px;
+}
+
+.meta span,
+.meta strong {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.meta span {
+  color: var(--color-muted);
+  background: var(--color-bg);
+}
+
+.meta strong {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.meta time {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.selectArea {
+  width: 100%;
+  margin-top: 8px;
+  display: grid;
+  gap: 6px;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.selectArea > strong {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.selectArea > span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.selectArea q {
+  padding-left: 10px;
+  border-left: 2px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.actions button {
+  padding: 7px 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.actions .primary {
+  border-color: var(--color-text);
+  color: white;
+  background: var(--color-text);
+}
+
+.details {
+  margin-top: 14px;
+  padding-top: 14px;
+  display: grid;
+  gap: 13px;
+  border-top: 1px solid var(--color-border);
+}
+
+.details h3 {
+  margin-bottom: 5px;
+  color: var(--color-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.details p,
+.details li {
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.details ol {
+  padding-left: 18px;
+}

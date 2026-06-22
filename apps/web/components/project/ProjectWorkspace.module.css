@@ -1,0 +1,302 @@
+.shell {
+  height: 100vh;
+  min-width: 980px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.header {
+  min-height: 54px;
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.logo {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.logo span {
+  color: var(--color-accent);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.headerActions a {
+  color: var(--color-text);
+}
+
+.progress {
+  min-height: 44px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  border-bottom: 1px solid var(--color-border);
+  list-style: none;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.progress li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.progress li > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-border);
+}
+
+.progressDone {
+  color: var(--color-text);
+}
+
+.progressDone > span,
+.progressActive > span {
+  background: var(--color-accent) !important;
+}
+
+.progressActive {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.workspace {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 65fr) minmax(320px, 35fr);
+}
+
+.leftPanel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.player {
+  min-height: 280px;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: rgb(255 255 255 / 0.55);
+  background: #08090b;
+}
+
+.playerEmpty,
+.playerSelected {
+  max-width: 520px;
+  padding: 40px;
+  display: grid;
+  justify-items: center;
+  gap: 11px;
+  text-align: center;
+}
+
+.playerEmpty > span {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: 12px;
+}
+
+.playerSelected strong {
+  color: white;
+  font-size: 19px;
+}
+
+.playerSelected p {
+  color: rgb(255 255 255 / 0.45);
+  font-size: 12px;
+}
+
+.playerSelected button {
+  padding: 9px 17px;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  border-radius: 8px;
+  color: white;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.clipInfo {
+  min-height: 48px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  font-size: 13px;
+}
+
+.clipInfo div {
+  display: flex;
+  gap: 7px;
+}
+
+.clipInfo span {
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: var(--color-muted);
+  background: var(--color-surface);
+}
+
+.clipInfo strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabs {
+  min-height: 47px;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabs button {
+  padding: 0 24px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--color-muted);
+  background: transparent;
+}
+
+.tabs .tabActive {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.editor {
+  min-height: 210px;
+  max-height: 42%;
+  padding: 24px 28px;
+  overflow: auto;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.editorPreview {
+  display: grid;
+  gap: 16px;
+}
+
+.editorPreview label {
+  display: grid;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.editorPreview input,
+.editorPreview textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: white;
+}
+
+.editorPreview textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.rightPanel {
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.candidateHeader {
+  min-height: 50px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.candidateHeader h2 {
+  font-size: 15px;
+}
+
+.candidateHeader span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.sortBar {
+  min-height: 46px;
+  padding: 8px 18px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.sortBar button {
+  padding: 6px 11px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--color-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.sortBar .sortActive {
+  border-color: var(--color-border);
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.candidateScroll {
+  flex: 1;
+  padding: 12px 14px;
+  overflow: auto;
+}
+
+.candidateFooter {
+  min-height: 56px;
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.candidateFooter button {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-muted);
+  background: var(--color-bg);
+  cursor: pointer;
+}
