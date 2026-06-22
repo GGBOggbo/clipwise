@@ -8,10 +8,15 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("UploadPageClient", () => {
-  it("选择文件前只显示选择按钮", () => {
+  it("选择文件前只显示一个文件选择入口", () => {
     render(<UploadPageClient />);
 
-    expect(screen.getByRole("button", { name: "选择回放" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "上传 MP4 回放" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "选择回放" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "开始分析" }),
     ).not.toBeInTheDocument();
@@ -28,6 +33,10 @@ describe("UploadPageClient", () => {
     );
 
     expect(screen.getByText("直播.mp4")).toBeVisible();
+    expect(screen.getByText("点击或拖入新文件替换")).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "重新选择" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "开始分析" })).toBeEnabled();
   });
 

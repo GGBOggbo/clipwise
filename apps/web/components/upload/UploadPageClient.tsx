@@ -106,37 +106,26 @@ export function UploadPageClient() {
               onKeyDown={handleDropZoneKeyDown}
             >
               <span className={styles.dropIcon} aria-hidden="true">
-                ↑
+                {file && !isDragging ? "✓" : "↑"}
               </span>
-              <strong>
-                {isDragging ? "松开即可选择" : "拖拽 MP4 到这里"}
-              </strong>
-              <span>或点击选择本地文件</span>
-            </div>
-
-            <button
-              className={styles.selectButton}
-              type="button"
-              onClick={() => inputRef.current?.click()}
-            >
-              <span aria-hidden="true">＋</span>
-              选择回放
-            </button>
-
-            {file && (
-              <div className={styles.fileInfo}>
-                <div>
+              {isDragging ? (
+                <>
+                  <strong>松开即可选择</strong>
+                  <span>将替换当前选择的文件</span>
+                </>
+              ) : file ? (
+                <>
                   <strong>{file.name}</strong>
                   <span>{formatFileSize(file.size)}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => inputRef.current?.click()}
-                >
-                  重新选择
-                </button>
-              </div>
-            )}
+                  <span>点击或拖入新文件替换</span>
+                </>
+              ) : (
+                <>
+                  <strong>拖拽 MP4 到这里</strong>
+                  <span>或点击选择本地文件</span>
+                </>
+              )}
+            </div>
 
             {error && (
               <p className={styles.error} role="alert">
