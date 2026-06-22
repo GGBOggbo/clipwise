@@ -11,8 +11,6 @@ const EDITABLE_FIELDS = [
   "previewStatus",
 ] as const;
 
-type EditableField = (typeof EDITABLE_FIELDS)[number];
-
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ token: string; id: string }> },
