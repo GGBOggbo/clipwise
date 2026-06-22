@@ -12,7 +12,7 @@
     "db:down": "docker compose -f infra/docker-compose.yml down",
     "db:generate": "pnpm --filter @clipwise/web exec drizzle-kit generate",
     "db:migrate": "pnpm --filter @clipwise/web exec drizzle-kit migrate",
-    "db:seed": "pnpm --filter @clipwise/web exec tsx apps/web/db/seed.ts",
+    "db:seed": "pnpm --filter @clipwise/web exec tsx db/seed.ts",
     "worker": "echo 'Run from services/worker: uv run python -m clipwise_worker.main'"
   }
 }
