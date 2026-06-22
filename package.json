@@ -1,0 +1,12 @@
+{
+  "name": "clipwise",
+  "private": true,
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "dev": "pnpm --filter @clipwise/web dev",
+    "build": "pnpm --filter @clipwise/web build",
+    "lint": "pnpm --filter @clipwise/web lint",
+    "test": "pnpm --filter @clipwise/web test",
+    "test:e2e": "pnpm --filter @clipwise/web test:e2e"
+  }
+}
