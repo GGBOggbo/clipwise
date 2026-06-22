@@ -40,7 +40,7 @@ test("候选选择、编辑、导出提醒和列表操作", async ({ page }) => 
   await expect(page.getByTestId("candidate-card")).toHaveCount(7);
 });
 
-test("Chrome 720px 高度下编辑内容区与播放器共同分配剩余空间", async ({
+test("桌面浏览器 720px 高度下编辑区使用确定的网格布局", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1470, height: 720 });
@@ -56,14 +56,17 @@ test("Chrome 720px 高度下编辑内容区与播放器共同分配剩余空间"
     const tabs = document.querySelector('nav[aria-label="片段编辑"]');
     const content = tabs?.nextElementSibling;
     const player = document.querySelector('[data-testid="local-video-player"]');
+    const leftPanel = player?.parentElement;
 
     return {
+      layoutMode: leftPanel ? getComputedStyle(leftPanel).display : "",
       contentHeight: content?.getBoundingClientRect().height ?? 0,
       contentTop: content?.getBoundingClientRect().top ?? 0,
       playerHeight: player?.getBoundingClientRect().height ?? 0,
     };
   });
 
+  expect(layout.layoutMode).toBe("grid");
   expect(layout.contentHeight).toBeGreaterThan(230);
   expect(layout.contentTop).toBeLessThan(490);
   expect(layout.playerHeight).toBeGreaterThanOrEqual(280);

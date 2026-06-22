@@ -51,6 +51,8 @@
   - 文案编辑区原生滚动条在内容较长时较明显，可作为后续视觉微调项。
   - Chrome 真实窗口确认核心错位根因：`LocalVideoPlayer` 使用 `height: 100%`，选择候选后播放器从 317px 膨胀到约 514px，将 Tab 内容区起点推到 y≈707，而窗口高度仅 720px。
   - 修正为播放器和 Tab 内容区共同使用 `flex: 1 1 0` 后，720px 高度下播放器为 280px，文案/字幕/导出内容区均从 y=473 开始并延伸到窗口底部。
+  - 进一步跨浏览器修复：Flex 仍会受 Chromium/WebKit intrinsic size 差异影响，因此左侧改为四行 CSS Grid：`播放器 / 片段信息 / Tab / 内容区`。
+  - 1470×720 回归测试已分别在 Chromium 和 WebKit 通过，Safari 不再依赖 Flex 高度协商。
 
 ## 后端架构发现
 

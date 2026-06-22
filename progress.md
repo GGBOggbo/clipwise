@@ -68,9 +68,15 @@
   - 在用户 Chrome 的 1470×720 窗口复现：选择候选后 Tab 内容被播放器顶出视口。
   - 修改播放器和编辑内容的 Flex 分配。
   - Chrome 复验文案、字幕、导出三栏位置均为 top=473、bottom=720。
+  - 将左侧父容器从 Flex 改为明确四行 Grid，消除 Chrome 与 Safari 高度计算差异。
+  - 安装 Playwright WebKit，并通过同一条 1470×720 布局回归测试。
 - 验证：
   - 1470×720 Chrome：文案、字幕、导出内容区位置正确。
-  - Playwright 新增布局回归测试并通过。
+  - Playwright Chromium 与 WebKit 布局回归测试均通过。
+  - 完整跨浏览器 E2E：Chromium 4 条 + WebKit 4 条，共 8 条通过。
+  - 前端相关 Vitest：14 个测试文件、33 条测试通过。
+  - lint 与生产构建通过。
+  - 全量 Vitest 仍有 2 条后端测试失败：候选 PATCH 对 demo fixture 返回 404；需要 Worker 的集成测试未达到 succeeded。两者不属于本次布局改动。
 
 ## 最新测试结果
 
