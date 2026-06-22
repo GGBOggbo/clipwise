@@ -39,3 +39,32 @@ test("候选选择、编辑、导出提醒和列表操作", async ({ page }) => 
   await page.getByRole("button", { name: "查看更多候选" }).click();
   await expect(page.getByTestId("candidate-card")).toHaveCount(7);
 });
+
+test("Chrome 720px 高度下编辑内容区与播放器共同分配剩余空间", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1470, height: 720 });
+  await page.goto("/project/demo-project");
+
+  await page
+    .getByRole("button", {
+      name: "选择片段：为什么很多人做 AI 应用第一步就错了",
+    })
+    .click();
+
+  const layout = await page.evaluate(() => {
+    const tabs = document.querySelector('nav[aria-label="片段编辑"]');
+    const content = tabs?.nextElementSibling;
+    const player = document.querySelector('[data-testid="local-video-player"]');
+
+    return {
+      contentHeight: content?.getBoundingClientRect().height ?? 0,
+      contentTop: content?.getBoundingClientRect().top ?? 0,
+      playerHeight: player?.getBoundingClientRect().height ?? 0,
+    };
+  });
+
+  expect(layout.contentHeight).toBeGreaterThan(230);
+  expect(layout.contentTop).toBeLessThan(490);
+  expect(layout.playerHeight).toBeGreaterThanOrEqual(280);
+});

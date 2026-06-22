@@ -80,7 +80,7 @@ export function LocalVideoPlayer({
   }
 
   return (
-    <div className={styles.player}>
+    <div className={styles.player} data-testid="local-video-player">
       <input
         ref={inputRef}
         className={styles.hiddenInput}
