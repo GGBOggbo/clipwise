@@ -79,6 +79,57 @@
   gap: 14px;
 }
 
+.dropZone {
+  width: min(100%, 520px);
+  min-height: 154px;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  border: 1.5px dashed color-mix(in oklch, var(--color-accent) 48%, var(--color-border));
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+  background: var(--color-bg);
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.dropZone:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.dropZoneActive {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  transform: translateY(-2px);
+}
+
+.dropZone strong {
+  color: var(--color-text);
+  font-size: 16px;
+}
+
+.dropZone > span:last-child {
+  font-size: 13px;
+}
+
+.dropIcon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--color-accent);
+  background: white;
+  font-size: 22px;
+  font-weight: 700;
+}
+
 .selectButton,
 .startButton {
   min-height: 46px;

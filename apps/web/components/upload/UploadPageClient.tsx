@@ -1,5 +1,6 @@
 "use client";
 
+import type { DragEvent, KeyboardEvent } from "react";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { validateVideoFile } from "@/lib/file-validation";
@@ -17,6 +18,7 @@ export function UploadPageClient() {
   const [file, setFile] = useState<File | null>(null);
   const [state, setState] = useState<UploadState>("empty");
   const [error, setError] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
 
   function chooseFile(nextFile?: File) {
     if (!nextFile) return;
@@ -39,6 +41,18 @@ export function UploadPageClient() {
     sessionStorage.setItem("clipwise-demo-file-name", file.name);
     setState("creating");
     router.push("/project/demo-project");
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsDragging(false);
+    chooseFile(event.dataTransfer.files[0]);
+  }
+
+  function handleDropZoneKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    inputRef.current?.click();
   }
 
   return (
@@ -67,6 +81,39 @@ export function UploadPageClient() {
           />
 
           <div className={styles.actions}>
+            <div
+              aria-label="上传 MP4 回放"
+              className={`${styles.dropZone} ${
+                isDragging ? styles.dropZoneActive : ""
+              }`}
+              role="button"
+              tabIndex={0}
+              onClick={() => inputRef.current?.click()}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                setIsDragging(false);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "copy";
+                setIsDragging(true);
+              }}
+              onDrop={handleDrop}
+              onKeyDown={handleDropZoneKeyDown}
+            >
+              <span className={styles.dropIcon} aria-hidden="true">
+                ↑
+              </span>
+              <strong>
+                {isDragging ? "松开即可选择" : "拖拽 MP4 到这里"}
+              </strong>
+              <span>或点击选择本地文件</span>
+            </div>
+
             <button
               className={styles.selectButton}
               type="button"
