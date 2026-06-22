@@ -51,10 +51,10 @@
 
 .intro h1 {
   margin: 0;
-  font-size: clamp(32px, 3vw, 42px);
+  font-size: 40px;
   line-height: 1.15;
-  letter-spacing: -0.045em;
-  text-wrap: balance;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
 }
 
 .intro p {
@@ -197,15 +197,23 @@
   background: var(--color-bg);
 }
 
-.resultGrid article > span {
+.resultIcon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 14px;
+  border-radius: 12px;
   color: var(--color-accent);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
+  background: var(--color-accent-soft);
+}
+
+.resultIcon svg {
+  width: 20px;
+  height: 20px;
 }
 
 .resultGrid h2 {
-  margin-top: 22px;
   font-size: 15px;
   letter-spacing: -0.02em;
 }

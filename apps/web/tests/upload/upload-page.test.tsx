@@ -74,4 +74,13 @@ describe("UploadPageClient", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("MP4");
   });
+
+  it("结果卡片使用原设计图标而不是数字编号", () => {
+    render(<UploadPageClient />);
+
+    expect(screen.getAllByTestId("result-icon")).toHaveLength(3);
+    expect(screen.queryByText("01")).not.toBeInTheDocument();
+    expect(screen.queryByText("02")).not.toBeInTheDocument();
+    expect(screen.queryByText("03")).not.toBeInTheDocument();
+  });
 });

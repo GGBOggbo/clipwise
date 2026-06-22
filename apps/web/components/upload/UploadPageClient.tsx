@@ -155,17 +155,69 @@ export function UploadPageClient() {
             <p className={styles.sectionLabel}>你会得到</p>
             <div className={styles.resultGrid}>
               <article>
-                <span aria-hidden="true">01</span>
+                <span
+                  className={styles.resultIcon}
+                  data-testid="result-icon"
+                  aria-hidden="true"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 8v8" />
+                    <path d="M8 12h8" />
+                  </svg>
+                </span>
                 <h2>AI 推荐切片</h2>
                 <p>TOP 5 片段，按推荐度排序，快速定位高价值内容。</p>
               </article>
               <article>
-                <span aria-hidden="true">02</span>
+                <span
+                  className={styles.resultIcon}
+                  data-testid="result-icon"
+                  aria-hidden="true"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 2v6h6" />
+                    <path d="M16 13H8" />
+                    <path d="M16 17H8" />
+                  </svg>
+                </span>
                 <h2>标题 / 摘要 / 金句</h2>
                 <p>可复制可编辑，直接用于发布文案。</p>
               </article>
               <article>
-                <span aria-hidden="true">03</span>
+                <span
+                  className={styles.resultIcon}
+                  data-testid="result-icon"
+                  aria-hidden="true"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <path d="m7 10 5 5 5-5" />
+                    <path d="M12 15V3" />
+                  </svg>
+                </span>
                 <h2>MP4 / SRT / 文案</h2>
                 <p>快速导出，原始视频不上传服务器。</p>
               </article>
