@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DesktopViewportGuard } from "@/components/layout/DesktopViewportGuard";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        <DesktopViewportGuard>{children}</DesktopViewportGuard>
+      </body>
     </html>
   );
 }

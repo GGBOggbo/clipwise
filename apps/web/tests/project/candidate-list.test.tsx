@@ -32,7 +32,12 @@ describe("候选选择", () => {
     const user = userEvent.setup();
     render(<ProjectWorkspace initialProject={mockReadyProject} />);
 
-    await user.click(screen.getByRole("button", { name: "按时间顺序" }));
+    const timeSort = screen.getByRole("button", { name: "按时间顺序" });
+    expect(timeSort).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(timeSort);
+
+    expect(timeSort).toHaveAttribute("aria-pressed", "true");
     expect(screen.getAllByTestId("candidate-time")[0]).toHaveTextContent(
       "13:20",
     );

@@ -41,6 +41,7 @@ export function CandidateList({
 
       <div className={styles.sortBar}>
         <button
+          aria-pressed={sort === "rank"}
           className={sort === "rank" ? styles.sortActive : undefined}
           type="button"
           onClick={() => onSortChange("rank")}
@@ -48,6 +49,7 @@ export function CandidateList({
           推荐优先
         </button>
         <button
+          aria-pressed={sort === "time"}
           className={sort === "time" ? styles.sortActive : undefined}
           type="button"
           onClick={() => onSortChange("time")}

@@ -8,6 +8,7 @@
   --color-accent-soft: oklch(94% 0.04 255);
   --color-danger: oklch(45% 0.14 25);
   --color-danger-soft: oklch(96% 0.025 25);
+  --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
   --shadow-focus: 0 0 0 3px oklch(75% 0.12 255 / 0.35);
@@ -52,4 +53,45 @@ textarea {
 *:focus-visible {
   outline: none;
   box-shadow: var(--shadow-focus);
+}
+
+.desktop-viewport-notice {
+  min-height: 100vh;
+  padding: 32px;
+  display: none;
+  place-items: center;
+  text-align: center;
+  background: var(--color-bg);
+}
+
+.desktop-viewport-notice > div {
+  max-width: 420px;
+  display: grid;
+  gap: 14px;
+}
+
+.desktop-viewport-notice span {
+  color: var(--color-accent);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.desktop-viewport-notice h1 {
+  font-size: clamp(24px, 7vw, 34px);
+  letter-spacing: -0.04em;
+}
+
+.desktop-viewport-notice p {
+  color: var(--color-muted);
+  line-height: 1.7;
+}
+
+@media (max-width: 899px) {
+  .desktop-viewport-notice {
+    display: grid;
+  }
+
+  .desktop-viewport-content {
+    display: none;
+  }
 }
