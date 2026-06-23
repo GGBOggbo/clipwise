@@ -51,8 +51,8 @@
 - [x] 服务端安全调用 Groq `whisper-large-v3`
 - [x] 保存标准化 transcript
 - [x] 增加 ASR 失败错误提示
-- [ ] Phase 4.1：长视频完整时长分片、合并偏移和重叠段处理
-- **状态：** complete_with_known_gap
+- [x] Phase 4.1：长视频完整时长分片、合并偏移和重叠段处理
+- **状态：** complete
 
 ### 阶段 5：DeepSeek 高光发现
 

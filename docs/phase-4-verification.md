@@ -77,8 +77,20 @@
 - 候选评分用 mock_ai（Phase 5 换 DeepSeek）
 - 本地导出 MP4/SRT/TXT（Phase 6）
 - StorageProvider 抽象（Phase 6）
-- 视频时长 durationMs 真实读取（先传 0，后期从 `<video>` 元素补）
+- ~~视频时长 durationMs 真实读取（先传 0，后期从 `<video>` 元素补）~~ → **Phase 4.1 已完成**：`probeVideoDurationMs` 读真实时长，长视频自动分块。
 - 失败重投递完整 UI（本阶段只 mark_failed + error_code）
+
+## Phase 4.1 长视频分片（2026-06-23）
+
+修复了前端硬编码 20 分钟时长的 bug：之前 `calculateChunks` 永远只算出 1 块，导致 2 小时视频的 mp3 (~43MB) 超 Groq 25MB 限制而失败。
+
+**改动**：
+- 新增 `probeVideoDurationMs(file)`：用临时 `<video>` 读 `loadedmetadata` 的真实时长，`duration=Infinity` 时走 seek-to-tail fallback。
+- `use-audio-extraction` 调用 `probeVideoDurationMs` 拿真实时长 → 传给 `calculateChunks` → 长视频自动切成 30 分钟块（每块 ~10MB < 25MB）。
+- 真实 `durationMs` 传给 create-project API（替代之前的占位 `0`）。
+- worker 侧（逐块调 Groq + `merge_segments_with_offset` 偏移合并）**无需改动**，早已支持多块。
+
+**验证**：Web 单测 111 passed（+2 probe 测试），E2E 8 passed，lint/build 通过。真实验收需 >30 分钟视频触发多块。
 
 ## ⚠️ 安全提醒
 
