@@ -58,6 +58,11 @@ export function CandidateCard({
         </time>
       </div>
 
+      <div className={styles.editorMeta}>
+        <span>{candidate.topicLabel}</span>
+        {candidate.needsSetup && <span>需要补开场</span>}
+      </div>
+
       <button
         className={styles.selectArea}
         type="button"

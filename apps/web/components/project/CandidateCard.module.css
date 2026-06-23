@@ -50,6 +50,22 @@
   white-space: nowrap;
 }
 
+.editorMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.editorMeta span {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.92);
+  color: #475569;
+  font-size: 12px;
+  padding: 3px 8px;
+}
+
 .selectArea {
   width: 100%;
   margin-top: 8px;

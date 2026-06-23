@@ -48,4 +48,16 @@ describe("片段编辑器", () => {
     await user.type(subtitle, "修改后的字幕");
     expect(subtitle).toHaveValue("修改后的字幕");
   });
+
+  it("文案只读区展示剪辑建议与边界说明", async () => {
+    const user = userEvent.setup();
+    render(<ProjectWorkspace initialProject={mockReadyProject} />);
+    await selectFirstCandidate(user);
+
+    expect(screen.getByText("剪辑建议")).toBeVisible();
+    expect(screen.getByText("边界说明")).toBeVisible();
+    // fixture 未给 editingNote/boundaryReason 时显示兜底文案
+    expect(screen.getByText("暂无额外剪辑建议。")).toBeVisible();
+    expect(screen.getByText("已按转写片段边界生成。")).toBeVisible();
+  });
 });

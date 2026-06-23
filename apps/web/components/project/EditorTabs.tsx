@@ -134,6 +134,13 @@ export function EditorTabs({
             <section className={styles.readOnly}>
               <h3>推荐理由</h3>
               <p>{candidate.recommendationReason}</p>
+              <h3>剪辑建议</h3>
+              <p>{candidate.editingNote || "暂无额外剪辑建议。"}</p>
+              <h3>边界说明</h3>
+              <p>{candidate.boundaryReason || "已按转写片段边界生成。"}</p>
+              {candidate.needsSetup && (
+                <p>这段需要剪辑师补充开场或借用前文上下文。</p>
+              )}
               <h3>风险提示</h3>
               <p>
                 {candidate.riskNotices.length
