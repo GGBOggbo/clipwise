@@ -125,7 +125,7 @@ export function useExportClip() {
           });
         });
         downloadBlob(
-          new Blob([zipBytes], { type: "application/zip" }),
+          new Blob([zipBytes.buffer as ArrayBuffer], { type: "application/zip" }),
           "clipwise-export.zip",
         );
         setProgress({ status: "done", current: total, total });
