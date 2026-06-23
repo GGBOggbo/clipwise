@@ -83,6 +83,7 @@ class Pipeline:
         config: WorkerConfig,
         poll_interval: float = 1.0,
         max_iterations: int | None = None,
+        max_concurrency: int | None = None,
         candidate_service_factory: Callable[[WorkerConfig], Any] | None = None,
     ) -> None:
         self._db = database
@@ -90,6 +91,8 @@ class Pipeline:
         self._config = config
         self._poll_interval = poll_interval
         self._max_iterations = max_iterations  # None = 无限循环；测试用 0 或正数
+        # 并发上限：显式传入优先，否则读 config（默认 2）
+        self._max_concurrency = max_concurrency or config.max_concurrency
         self._candidate_service_factory = (
             candidate_service_factory or self._build_candidate_service
         )
@@ -266,12 +269,31 @@ class Pipeline:
 
     async def run(self) -> None:
         await self.recover_interrupted()
+        semaphore = asyncio.Semaphore(self._max_concurrency)
+        in_flight: set[asyncio.Task] = set()
         iterations = 0
+
         while self._max_iterations is None or iterations < self._max_iterations:
             task = await self._repo.claim_next()
             if task is None:
-                await asyncio.sleep(self._poll_interval)
+                # 没有新任务：等一个在途任务完成，或空转 sleep
+                if in_flight:
+                    done, in_flight = await asyncio.wait(
+                        in_flight, return_when=asyncio.FIRST_COMPLETED
+                    )
+                    # done 里的异常已被 process_task 内部捕获处理
+                else:
+                    await asyncio.sleep(self._poll_interval)
                 iterations += 1
                 continue
-            await self.process_task(task)
+
+            async def run_one(t: dict[str, Any]) -> None:
+                async with semaphore:
+                    await self.process_task(t)
+
+            in_flight.add(asyncio.create_task(run_one(task)))
             iterations += 1
+
+        # 收尾：等所有在途任务完成（max_iterations 到期时）
+        if in_flight:
+            await asyncio.gather(*in_flight, return_exceptions=True)

@@ -156,3 +156,74 @@ async def test_process_task_calls_injected_candidate_service_and_succeeds(
             "DELETE FROM projects WHERE token = $1",
             project_token,
         )
+
+
+@pytest.mark.asyncio
+async def test_run_processes_tasks_concurrently_up_to_max_concurrency(
+    db, worker_config
+):
+    """3 个任务，max_concurrency=2：前两个同时开始，第三个等空位。"""
+    import asyncio
+    import time
+
+    started: list[float] = []
+    finished: list[float] = []
+    gate = asyncio.Event()
+
+    class SlowConcurrentService:
+        async def generate(self, project_token, progress_callback=None):
+            started.append(time.monotonic())
+            # 让任务持续一小段时间，制造重叠窗口
+            await asyncio.sleep(0.15)
+            finished.append(time.monotonic())
+            return HighlightPipelineResult(candidates=[], window_scores=[])
+
+    tokens = []
+    task_ids = []
+    async with db.pool.acquire() as conn:
+        for i in range(3):
+            token = f"concurrent-{uuid.uuid4()}"
+            task_id = f"ctask-{uuid.uuid4()}"
+            tokens.append(token)
+            task_ids.append(task_id)
+            await conn.execute(
+                "INSERT INTO projects (token, status, video_connection_status, expires_at) "
+                "VALUES ($1, 'transcribing', 'missing', NOW() + INTERVAL '7 days')",
+                token,
+            )
+            await conn.execute(
+                "INSERT INTO jobs (task_id, project_token, type, status, progress, message) "
+                "VALUES ($1, $2, 'generate_candidates', 'pending', 0, '等待')",
+                task_id,
+                token,
+            )
+
+    try:
+        repo = TaskRepo(db)
+        pipeline = Pipeline(
+            db,
+            repo,
+            worker_config,
+            poll_interval=0.01,
+            max_concurrency=2,
+            candidate_service_factory=lambda _: SlowConcurrentService(),
+        )
+        # max_iterations 限制领取循环次数；设大一点让 3 个都领到 + 处理完
+        pipeline._max_iterations = 20
+        await pipeline.run()
+
+        # 3 个任务都应完成
+        assert len(started) == 3
+        assert len(finished) == 3
+
+        # 并发限制：任意时刻最多 2 个 in-flight
+        # 按 started 排序，第 3 个的开始时间必须晚于第 1 个的结束时间
+        order = sorted(range(3), key=lambda i: started[i])
+        # 前两个重叠（第二个在第一个结束前开始）
+        assert started[order[1]] < finished[order[0]] + 0.01
+        # 第三个等第一个空位（第三个在第一个结束后才开始）
+        assert started[order[2]] >= finished[order[0]] - 0.01
+    finally:
+        async with db.pool.acquire() as conn:
+            for token in tokens:
+                await conn.execute("DELETE FROM projects WHERE token = $1", token)
