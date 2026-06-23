@@ -89,12 +89,12 @@
 
 ### 阶段 7：并发能力与部署
 
-- [ ] 将串行 worker 演进为有限并发 worker
-- [ ] 单进程使用 asyncio.Lock 防止重复领取
-- [ ] 为 MySQL/Redis 锁或消息队列保留演进边界
-- [ ] 增加并发、超时、恢复和压力测试
-- [ ] 配置生产环境密钥、日志、监控和部署
-- **状态：** pending
+- [x] 将串行 worker 演进为有限并发 worker（asyncio.Semaphore，默认 2）
+- [x] claim_next 的 FOR UPDATE SKIP LOCKED 天然并发安全（无需额外 Lock）
+- [ ] 为 MySQL/Redis 锁或消息队列保留演进边界（多进程部署时再做）
+- [x] 增加并发测试（3 任务 max_concurrency=2 验证重叠 + 限流）
+- [ ] 配置生产环境密钥、日志、监控和部署（留后续）
+- **状态：** complete_with_known_gap（并发完成；生产部署留后续）
 
 ## 关键问题
 

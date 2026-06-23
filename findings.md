@@ -197,6 +197,8 @@
 - 拖拽计划：`docs/superpowers/plans/2026-06-22-upload-drag-drop.md`
 
 - Phase 5.1 人工标注留出集路径为 `datasets/editor-recall-labels/`；该数据只用于后续校准，不得被 Worker 生产候选路径作为 mock 或 fallback 读取。
+- Phase 4.1 长视频分片的真正瓶颈是前端硬编码 20 分钟时长（`assumedDurationMs`），不是 worker 或 `calculateChunks`；修复方式是用 `<video>` 元素 probe 真实时长。
+- Phase 7 并发改造：`claim_next` 的 `FOR UPDATE SKIP LOCKED` 天然并发安全，无需额外锁；并发只需在 `run()` 里用 `asyncio.Semaphore` + `asyncio.create_task`，单进程内够用。多进程部署时再上 Redis 锁。默认 `WORKER_MAX_CONCURRENCY=2`，兼顾吞吐与 Groq/DeepSeek 限流。
 
 ---
 
