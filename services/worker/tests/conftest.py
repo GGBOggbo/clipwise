@@ -19,7 +19,7 @@ async def db() -> Database:
         "DATABASE_URL",
         "postgres://clipwise:clipwise_dev@localhost:5432/clipwise",
     )
-    config = WorkerConfig(database_url=database_url)
+    config = WorkerConfig(database_url=database_url, groq_api_key="fake-test-key")
     database = Database(config)
     await database.connect()
     yield database

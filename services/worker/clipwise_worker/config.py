@@ -10,6 +10,9 @@ load_dotenv()
 @dataclass(frozen=True)
 class WorkerConfig:
     database_url: str
+    groq_api_key: str
+    groq_asr_model: str = "whisper-large-v3"
+    storage_root: str = "./storage"
     poll_interval_seconds: float = 1.0
 
     @classmethod
@@ -17,5 +20,14 @@ class WorkerConfig:
         database_url = os.environ.get("DATABASE_URL")
         if not database_url:
             raise RuntimeError("DATABASE_URL 环境变量未设置")
+        groq_api_key = os.environ.get("GROQ_API_KEY")
+        if not groq_api_key:
+            raise RuntimeError("GROQ_API_KEY 环境变量未设置")
         poll_interval = float(os.environ.get("WORKER_POLL_INTERVAL", "1.0"))
-        return cls(database_url=database_url, poll_interval_seconds=poll_interval)
+        return cls(
+            database_url=database_url,
+            groq_api_key=groq_api_key,
+            groq_asr_model=os.environ.get("GROQ_ASR_MODEL", "whisper-large-v3"),
+            storage_root=os.environ.get("STORAGE_ROOT", "./storage"),
+            poll_interval_seconds=poll_interval,
+        )
