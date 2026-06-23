@@ -1,17 +1,26 @@
 import pytest
 from clipwise_worker.pipeline import Pipeline
 from clipwise_worker.tasks import TaskRepo
+from clipwise_worker.config import WorkerConfig
+
+
+@pytest.fixture
+def worker_config():
+    return WorkerConfig(
+        database_url="postgres://clipwise:clipwise_dev@localhost:5432/clipwise",
+        groq_api_key="fake-test-key",
+    )
 
 
 @pytest.mark.asyncio
-async def test_recover_interrupted_marks_running_as_failed(db):
+async def test_recover_interrupted_marks_running_as_failed(db, worker_config):
     async with db.pool.acquire() as conn:
         await conn.execute(
             "INSERT INTO jobs (task_id, type, status, progress, message) "
             "VALUES ('interrupted-1', 'generate_candidates', 'running', 30, '处理中')"
         )
 
-    pipeline = Pipeline(db, TaskRepo(db), max_iterations=0)
+    pipeline = Pipeline(db, TaskRepo(db), worker_config, max_iterations=0)
     await pipeline.recover_interrupted()
 
     async with db.pool.acquire() as conn:
@@ -23,7 +32,7 @@ async def test_recover_interrupted_marks_running_as_failed(db):
 
 
 @pytest.mark.asyncio
-async def test_process_task_calls_mock_ai_and_succeeds(db):
+async def test_process_task_calls_mock_ai_and_succeeds(db, worker_config):
     async with db.pool.acquire() as conn:
         await conn.execute(
             "INSERT INTO projects (token, status, video_connection_status, expires_at) "
@@ -36,7 +45,7 @@ async def test_process_task_calls_mock_ai_and_succeeds(db):
         )
 
     repo = TaskRepo(db)
-    pipeline = Pipeline(db, repo, max_iterations=0)
+    pipeline = Pipeline(db, repo, worker_config, max_iterations=0)
     task = await repo.claim_next()
     await pipeline.process_task(task)
 

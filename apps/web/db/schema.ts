@@ -80,6 +80,8 @@ export const projectFiles = pgTable("project_files", {
   kind: text("kind").notNull(),
   storagePath: text("storage_path").notNull(),
   sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+  chunkIndex: integer("chunk_index").notNull().default(0),
+  startOffsetMs: bigint("start_offset_ms", { mode: "number" }).notNull().default(0),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

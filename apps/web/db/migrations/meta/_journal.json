@@ -8,6 +8,13 @@
       "when": 1782137247456,
       "tag": "0000_cheerful_jubilee",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782189399297,
+      "tag": "0001_fearless_firebrand",
+      "breakpoints": true
     }
   ]
 }

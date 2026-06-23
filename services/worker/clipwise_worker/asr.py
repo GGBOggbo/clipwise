@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import Any
 from groq import Groq
 
@@ -103,3 +104,30 @@ def merge_segments_with_offset(
 
     merged.sort(key=lambda s: s["start"])
     return merged
+
+
+async def save_transcript(database, project_token: str, segments: list[dict[str, Any]]) -> None:
+    """把合并后的 segments 写入 transcript_segments 表（毫秒）。
+
+    Args:
+        database: Database 实例
+        project_token: 项目 token
+        segments: merge_segments_with_offset 的返回（秒为单位）
+    """
+    async with database.pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                "DELETE FROM transcript_segments WHERE project_token = $1",
+                project_token,
+            )
+            for i, seg in enumerate(segments):
+                await conn.execute(
+                    "INSERT INTO transcript_segments (id, project_token, index, start_ms, end_ms, text) "
+                    "VALUES ($1, $2, $3, $4, $5, $6)",
+                    str(uuid.uuid4()),
+                    project_token,
+                    i,
+                    int(seg["start"] * 1000),
+                    int(seg["end"] * 1000),
+                    seg["text"],
+                )

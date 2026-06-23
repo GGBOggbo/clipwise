@@ -15,7 +15,7 @@ async def main() -> None:
     database = Database(config)
     await database.connect()
     repo = TaskRepo(database)
-    pipeline = Pipeline(database, repo, poll_interval=config.poll_interval_seconds)
+    pipeline = Pipeline(database, repo, config, poll_interval=config.poll_interval_seconds)
     try:
         await pipeline.run()
     finally:
