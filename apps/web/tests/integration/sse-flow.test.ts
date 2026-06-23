@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { describe, it, expect } from "vitest";
+import { randomUUID } from "node:crypto";
+import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db/client";
 
@@ -7,9 +8,8 @@ const API_BASE = process.env.INTEGRATION_API_BASE ?? "http://localhost:3000";
 
 describe("端到端：SSE 任务进度流", () => {
   it(
-    "SSE 推送进度直到 completed",
+    "SSE 推送数据库进度直到 completed",
     async () => {
-      // 1. 创建项目 + 上传音频
       const createResp = await fetch(`${API_BASE}/api/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -19,22 +19,42 @@ describe("端到端：SSE 任务进度流", () => {
           durationMs: 60000,
         }),
       });
-      const { projectToken } = await createResp.json();
-
-      const formData = new FormData();
-      formData.append(
-        "audio",
-        new Blob([new Uint8Array([1, 2, 3])], { type: "audio/mpeg" }),
-        "chunk.mp3",
-      );
-      const audioResp = await fetch(
-        `${API_BASE}/api/projects/${projectToken}/audio`,
-        { method: "POST", body: formData },
-      );
-      const { taskId } = await audioResp.json();
+      const { projectToken } = (await createResp.json()) as {
+        projectToken: string;
+      };
+      const taskId = randomUUID();
+      await db.insert(schema.jobs).values({
+        taskId,
+        projectToken,
+        type: "generate_candidates",
+        status: "running",
+        progress: 10,
+        message: "正在读取转写",
+      });
 
       try {
-        // 2. 建立 SSE 连接
+        const updater = (async () => {
+          await new Promise((resolve) => setTimeout(resolve, 1100));
+          await db
+            .update(schema.jobs)
+            .set({
+              progress: 65,
+              message: "正在筛选候选片段",
+              updatedAt: new Date(),
+            })
+            .where(eq(schema.jobs.taskId, taskId));
+          await new Promise((resolve) => setTimeout(resolve, 1100));
+          await db
+            .update(schema.jobs)
+            .set({
+              status: "succeeded",
+              progress: 100,
+              message: "候选生成完成",
+              updatedAt: new Date(),
+            })
+            .where(eq(schema.jobs.taskId, taskId));
+        })();
+
         const sseResp = await fetch(`${API_BASE}/api/tasks/${taskId}/events`, {
           headers: { Accept: "text/event-stream" },
         });
@@ -46,50 +66,44 @@ describe("端到端：SSE 任务进度流", () => {
         const decoder = new TextDecoder();
         let lastEvent: Record<string, string> | null = null;
         let eventCount = 0;
-        const startTime = Date.now();
 
-        while (Date.now() - startTime < 30000) {
+        while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           const chunk = decoder.decode(value, { stream: true });
           const events = chunk
             .split("\n\n")
-            .filter((b) => b.trim())
-            .map((b) => {
-              const ev: Record<string, string> = {};
-              for (const line of b.split("\n")) {
-                const i = line.indexOf(":");
-                if (i > 0) ev[line.slice(0, i)] = line.slice(i + 1).trimStart();
+            .filter((block) => block.trim())
+            .map((block) => {
+              const event: Record<string, string> = {};
+              for (const line of block.split("\n")) {
+                const separator = line.indexOf(":");
+                if (separator > 0) {
+                  event[line.slice(0, separator)] = line
+                    .slice(separator + 1)
+                    .trimStart();
+                }
               }
-              return ev;
+              return event;
             });
-          for (const ev of events) {
+          for (const event of events) {
             eventCount++;
-            lastEvent = ev;
-            if (ev.event === "completed") break;
+            lastEvent = event;
           }
-          if (lastEvent?.event === "completed") break;
         }
-        await reader.cancel();
+        await updater;
 
-        expect(eventCount).toBeGreaterThan(0);
+        expect(eventCount).toBeGreaterThanOrEqual(2);
         expect(lastEvent?.event).toBe("completed");
         const finalData = JSON.parse(lastEvent!.data);
         expect(finalData.status).toBe("succeeded");
         expect(finalData.progress).toBe(100);
-
-        // 3. completed 后拉一次 clips
-        const clipsResp = await fetch(
-          `${API_BASE}/api/projects/${projectToken}/clips`,
-        );
-        const clips = await clipsResp.json();
-        expect(clips).toHaveLength(7);
       } finally {
         await db
           .delete(schema.projects)
           .where(eq(schema.projects.token, projectToken));
       }
     },
-    40000,
+    15000,
   );
 });

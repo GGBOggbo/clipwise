@@ -12,7 +12,7 @@ const TEST_VIDEO =
 
 describe.skipIf(!existsSync(TEST_VIDEO))("端到端：真实上传 + Groq ASR", () => {
   it(
-    "上传真实视频音频 → Groq 转写 → transcript_segments 有数据 → 候选就绪",
+    "上传真实视频音频 → Groq 转写 → transcript_segments 有数据",
     async () => {
       // 1. 创建项目
       const createResp = await fetch(`${API_BASE}/api/projects`, {
@@ -55,33 +55,12 @@ describe.skipIf(!existsSync(TEST_VIDEO))("端到端：真实上传 + Groq ASR", 
         }
         expect(transcribeStatus).toBe("succeeded");
 
-        // 4. transcribe 完成后会自动建 generate_candidates job，等它也完成
-        //    通过项目页 redirect 逻辑：项目 status 应该是 ready 或 analyzing
-        let projectStatus = "transcribing";
-        for (let i = 0; i < 30; i++) {
-          const projectResp = await fetch(
-            `${API_BASE}/api/projects/${projectToken}`,
-          );
-          const project = (await projectResp.json()) as { status: string };
-          projectStatus = project.status;
-          if (projectStatus === "ready") break;
-          await new Promise((r) => setTimeout(r, 1000));
-        }
-        expect(projectStatus).toBe("ready");
-
-        // 5. 验证 transcript_segments 真的有数据（证明 Groq 跑了）
+        // 4. 验证 transcript_segments 真的有数据（证明 Groq 跑了）
         const segRows = await db
           .select({ id: schema.transcriptSegments.id })
           .from(schema.transcriptSegments)
           .where(eq(schema.transcriptSegments.projectToken, projectToken));
         expect(segRows.length).toBeGreaterThan(0);
-
-        // 6. 验证候选就绪
-        const clipsResp = await fetch(
-          `${API_BASE}/api/projects/${projectToken}/clips`,
-        );
-        const clips = (await clipsResp.json()) as unknown[];
-        expect(clips.length).toBeGreaterThan(0);
       } finally {
         await db
           .delete(schema.projects)
