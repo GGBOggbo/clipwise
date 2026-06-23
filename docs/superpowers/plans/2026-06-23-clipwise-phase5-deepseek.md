@@ -1041,7 +1041,7 @@ apps/web/tests/
 - 三条人工抽查表。
 - 尚未完成边界。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add services/worker/README.md task_plan.md findings.md progress.md \
@@ -1054,7 +1054,7 @@ git commit -m "docs: record phase 5 deepseek pipeline"
 **Files:**
 - Modify only if verification exposes defects.
 
-- [ ] **Step 1: Worker 测试**
+- [x] **Step 1: Worker 测试**
 
 ```bash
 cd services/worker
@@ -1065,7 +1065,7 @@ env -u ALL_PROXY -u all_proxy -u HTTP_PROXY -u http_proxy \
 
 Expected: 0 failed。
 
-- [ ] **Step 2: Web 单测**
+- [x] **Step 2: Web 单测**
 
 ```bash
 cd ../..
@@ -1075,7 +1075,7 @@ pnpm --filter @clipwise/web exec vitest run --exclude 'tests/integration/**'
 
 Expected: 0 failed。
 
-- [ ] **Step 3: E2E**
+- [x] **Step 3: E2E**
 
 ```bash
 DATABASE_URL='postgres://clipwise:clipwise_dev@localhost:5432/clipwise' \
@@ -1084,7 +1084,7 @@ pnpm test:e2e
 
 Expected: Chromium + WebKit 全部通过。
 
-- [ ] **Step 4: lint、build、diff**
+- [x] **Step 4: lint、build、diff**
 
 ```bash
 pnpm lint
@@ -1094,7 +1094,7 @@ git diff --check
 
 Expected: 全部 exit 0；若 build 保留既有 Turbopack storage tracing warning，记录为已知警告，不误报为 Phase 5 新错误。
 
-- [ ] **Step 5: 数据库迁移检查**
+- [x] **Step 5: 数据库迁移检查**
 
 Phase 5 不需要 schema migration。运行：
 

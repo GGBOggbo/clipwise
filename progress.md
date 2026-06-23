@@ -92,10 +92,11 @@
 |------|------|------|
 | Worker Phase 5 局部/全量测试 | 实现过程中已跑到 60 条通过 | PASS |
 | Web 非真实集成 smoke | `create-to-ready`、`sse-flow` 通过 | PASS |
-| 最终 Worker 全量测试 | 待重跑 | PENDING |
-| Web 单测 | 待重跑 | PENDING |
-| E2E | 待重跑 | PENDING |
-| lint / build / diff / migration drift | 待重跑 | PENDING |
+| 最终 Worker 全量测试 | 60 条通过 | PASS |
+| Web 单测 | 35 个文件、91 条测试通过 | PASS |
+| Web 非真实集成 smoke | 2 个文件、2 条测试通过 | PASS |
+| E2E | Chromium/WebKit 共 8 条通过 | PASS |
+| lint / build / diff / migration drift | lint、带 DATABASE_URL 的 build、diff、db:generate 均通过 | PASS |
 
 ## 错误日志
 
@@ -109,6 +110,8 @@
 | 2026-06-23 | `uv sync --frozen` 没有安装 pytest | 1 | 改用 `uv sync --frozen --extra dev` |
 | 2026-06-23 | 本机代理环境变量影响 Python SDK/httpx | 1 | Worker 测试命令显式 unset proxy |
 | 2026-06-23 | 旧集成测试依赖假音频和固定 7 候选 | 1 | 拆成 Web/API/SSE smoke、真实 ASR 和可选真实 DeepSeek E2E |
+| 2026-06-23 | E2E 布局测试绑定可变 demo 标题，autosave 后找不到旧标题 | 1 | 改为按第一张候选卡稳定选择，并等待 autosave 完成 |
+| 2026-06-23 | `pnpm build` 在未设置 `DATABASE_URL` 的 shell 失败 | 1 | 用本地开发 `DATABASE_URL` 执行 build，并在验收记录中标明该约束 |
 
 ## 工作区状态
 

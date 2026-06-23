@@ -1,4 +1,5 @@
 import pytest
+import uuid
 from unittest.mock import patch, AsyncMock
 from clipwise_worker.pipeline import Pipeline
 from clipwise_worker.tasks import TaskRepo
@@ -16,22 +17,25 @@ def worker_config():
 @pytest.mark.asyncio
 async def test_transcribe_job_writes_segments_and_creates_generate_job(db, worker_config):
     """transcribe_audio 完成后：transcript_segments 有数据 + 新 generate_candidates job 存在"""
-    project_token = "transcribe-test"
+    project_token = f"transcribe-test-{uuid.uuid4()}"
+    project_file_id = f"pf-{uuid.uuid4()}"
+    task_id = f"trans-task-{uuid.uuid4()}"
     async with db.pool.acquire() as conn:
         await conn.execute(
             "INSERT INTO projects (token, status, video_connection_status, expires_at) "
-            "VALUES ($1, 'transcribing', 'missing', NOW() + INTERVAL '7 days') "
-            "ON CONFLICT DO NOTHING",
+            "VALUES ($1, 'transcribing', 'missing', NOW() + INTERVAL '7 days')",
             project_token,
         )
         await conn.execute(
             "INSERT INTO project_files (id, project_token, kind, storage_path, size_bytes, chunk_index, start_offset_ms) "
-            "VALUES ('pf-1', $1, 'compressed_audio', '/fake/chunk.mp3', 100, 0, 0)",
+            "VALUES ($1, $2, 'compressed_audio', '/fake/chunk.mp3', 100, 0, 0)",
+            project_file_id,
             project_token,
         )
         await conn.execute(
             "INSERT INTO jobs (task_id, project_token, type, status, progress, message) "
-            "VALUES ('trans-task', $1, 'transcribe_audio', 'pending', 0, '等待')",
+            "VALUES ($1, $2, 'transcribe_audio', 'running', 0, '等待')",
+            task_id,
             project_token,
         )
 
@@ -47,8 +51,13 @@ async def test_transcribe_job_writes_segments_and_creates_generate_job(db, worke
          ), \
          patch("clipwise_worker.pipeline.delete_audio_files", new=AsyncMock()):
         mock_transcriber_cls.return_value.transcribe_file.return_value = fake_segments
-        task = await repo.claim_next()
-        await pipeline.process_task(task)
+        await pipeline.process_task(
+            {
+                "task_id": task_id,
+                "project_token": project_token,
+                "type": "transcribe_audio",
+            }
+        )
 
     async with db.pool.acquire() as conn:
         seg_count = await conn.fetchval(
@@ -60,7 +69,8 @@ async def test_transcribe_job_writes_segments_and_creates_generate_job(db, worke
             project_token,
         )
         trans_job = await conn.fetchrow(
-            "SELECT status FROM jobs WHERE task_id = 'trans-task'",
+            "SELECT status FROM jobs WHERE task_id = $1",
+            task_id,
         )
 
     assert seg_count == 1
@@ -75,17 +85,18 @@ async def test_transcribe_job_writes_segments_and_creates_generate_job(db, worke
 @pytest.mark.asyncio
 async def test_transcribe_job_fails_when_no_audio(db, worker_config):
     """没有音频文件时 transcribe_audio 失败 with error_code=no_audio"""
-    project_token = "transcribe-noaudio"
+    project_token = f"transcribe-noaudio-{uuid.uuid4()}"
+    task_id = f"trans-na-{uuid.uuid4()}"
     async with db.pool.acquire() as conn:
         await conn.execute(
             "INSERT INTO projects (token, status, video_connection_status, expires_at) "
-            "VALUES ($1, 'transcribing', 'missing', NOW() + INTERVAL '7 days') "
-            "ON CONFLICT DO NOTHING",
+            "VALUES ($1, 'transcribing', 'missing', NOW() + INTERVAL '7 days')",
             project_token,
         )
         await conn.execute(
             "INSERT INTO jobs (task_id, project_token, type, status, progress, message) "
-            "VALUES ('trans-na', $1, 'transcribe_audio', 'pending', 0, '等待')",
+            "VALUES ($1, $2, 'transcribe_audio', 'running', 0, '等待')",
+            task_id,
             project_token,
         )
 
@@ -96,12 +107,18 @@ async def test_transcribe_job_fails_when_no_audio(db, worker_config):
         "clipwise_worker.pipeline.read_project_audio_files",
         new=AsyncMock(return_value=[]),
     ):
-        task = await repo.claim_next()
-        await pipeline.process_task(task)
+        await pipeline.process_task(
+            {
+                "task_id": task_id,
+                "project_token": project_token,
+                "type": "transcribe_audio",
+            }
+        )
 
     async with db.pool.acquire() as conn:
         job = await conn.fetchrow(
-            "SELECT status, error_code FROM jobs WHERE task_id = 'trans-na'"
+            "SELECT status, error_code FROM jobs WHERE task_id = $1",
+            task_id,
         )
 
     assert job["status"] == "failed"
@@ -114,22 +131,25 @@ async def test_transcribe_job_fails_when_no_audio(db, worker_config):
 @pytest.mark.asyncio
 async def test_transcribe_job_fails_on_groq_error(db, worker_config):
     """Groq 调用失败时 transcribe_audio 失败 with error_code=asr_chunk_failed"""
-    project_token = "transcribe-groqfail"
+    project_token = f"transcribe-groqfail-{uuid.uuid4()}"
+    project_file_id = f"pf-g-{uuid.uuid4()}"
+    task_id = f"trans-groqfail-{uuid.uuid4()}"
     async with db.pool.acquire() as conn:
         await conn.execute(
             "INSERT INTO projects (token, status, video_connection_status, expires_at) "
-            "VALUES ($1, 'transcribing', 'missing', NOW() + INTERVAL '7 days') "
-            "ON CONFLICT DO NOTHING",
+            "VALUES ($1, 'transcribing', 'missing', NOW() + INTERVAL '7 days')",
             project_token,
         )
         await conn.execute(
             "INSERT INTO project_files (id, project_token, kind, storage_path, size_bytes, chunk_index, start_offset_ms) "
-            "VALUES ('pf-g', $1, 'compressed_audio', '/fake/chunk.mp3', 100, 0, 0)",
+            "VALUES ($1, $2, 'compressed_audio', '/fake/chunk.mp3', 100, 0, 0)",
+            project_file_id,
             project_token,
         )
         await conn.execute(
             "INSERT INTO jobs (task_id, project_token, type, status, progress, message) "
-            "VALUES ('trans-groqfail', $1, 'transcribe_audio', 'pending', 0, '等待')",
+            "VALUES ($1, $2, 'transcribe_audio', 'running', 0, '等待')",
+            task_id,
             project_token,
         )
 
@@ -142,12 +162,18 @@ async def test_transcribe_job_fails_on_groq_error(db, worker_config):
              new=AsyncMock(return_value=[("/fake/chunk.mp3", 0.0)]),
          ):
         mock_transcriber_cls.return_value.transcribe_file.side_effect = RuntimeError("groq 429")
-        task = await repo.claim_next()
-        await pipeline.process_task(task)
+        await pipeline.process_task(
+            {
+                "task_id": task_id,
+                "project_token": project_token,
+                "type": "transcribe_audio",
+            }
+        )
 
     async with db.pool.acquire() as conn:
         job = await conn.fetchrow(
-            "SELECT status, error_code FROM jobs WHERE task_id = 'trans-groqfail'"
+            "SELECT status, error_code FROM jobs WHERE task_id = $1",
+            task_id,
         )
 
     assert job["status"] == "failed"

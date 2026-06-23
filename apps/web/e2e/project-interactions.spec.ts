@@ -7,6 +7,13 @@ test.beforeEach(async ({ page }) => {
 // Phase 3 接通真实 PATCH 后，编辑会真写 DB（autosave → patchCandidate）。
 // 测试结尾用 afterEach 恢复 candidate-1 的原始标题，避免污染后续测试。
 const ORIGINAL_TITLE = "为什么很多人做 AI 应用第一步就错了";
+const selectFirstCandidate = async (page: import("@playwright/test").Page) => {
+  await page
+    .getByTestId("candidate-card")
+    .first()
+    .getByRole("button", { name: /^选择片段：/ })
+    .click();
+};
 
 test.afterEach(async () => {
   // 用 fetch 直接 PATCH 恢复，绕过 UI
@@ -26,20 +33,18 @@ test.afterEach(async () => {
 });
 
 test("候选选择、编辑、导出提醒和列表操作", async ({ page }) => {
-  await page
-    .getByRole("button", {
-      name: "选择片段：为什么很多人做 AI 应用第一步就错了",
-    })
-    .click();
+  await selectFirstCandidate(page);
 
   await expect(page.getByText("尚未预览")).toHaveCount(1);
   await expect(page.getByLabel("标题 1")).toBeVisible();
   await page.getByLabel("标题 1").fill("新的发布标题");
   await expect(page.getByText("等待保存")).toBeVisible();
+  await expect(page.getByText("已保存")).toBeVisible();
 
   await page.getByRole("button", { name: "字幕" }).click();
   await page.getByLabel("字幕 1").fill("修改后的字幕");
   await expect(page.getByLabel("字幕 1")).toHaveValue("修改后的字幕");
+  await expect(page.getByText("已保存")).toBeVisible();
 
   await page.getByLabel("重新选择本地原视频").setInputFiles({
     name: "直播回放.mp4",
@@ -67,11 +72,7 @@ test("桌面浏览器 720px 高度下编辑区使用确定的网格布局", asyn
   await page.setViewportSize({ width: 1470, height: 720 });
   await page.goto("/project/demo-project");
 
-  await page
-    .getByRole("button", {
-      name: "选择片段：为什么很多人做 AI 应用第一步就错了",
-    })
-    .click();
+  await selectFirstCandidate(page);
 
   const layout = await page.evaluate(() => {
     const tabs = document.querySelector('nav[aria-label="片段编辑"]');
