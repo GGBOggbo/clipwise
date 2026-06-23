@@ -13,6 +13,14 @@ describe("GET /api/projects/:token/clips", () => {
     expect(clips).toHaveLength(7);
     expect(clips[0]).toHaveProperty("finalScore");
     expect(clips[0]).toHaveProperty("titleOptions");
+    expect(clips[0]).toMatchObject({
+      recommendation: "recommended",
+      topicLabel: expect.any(String),
+      editingNote: expect.any(String),
+      boundaryReason: expect.any(String),
+      needsSetup: false,
+      rejectionReason: "none",
+    });
     expect(clips[0]).not.toHaveProperty("status");
   });
 

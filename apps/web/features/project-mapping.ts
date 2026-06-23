@@ -31,6 +31,12 @@ type CandidateRow = {
   recommendationReason: string;
   riskNotices: string[];
   previewStatus: ClipCandidate["previewStatus"];
+  recommendation: ClipCandidate["recommendation"];
+  topicLabel: string;
+  editingNote: string;
+  boundaryReason: string;
+  needsSetup: boolean;
+  rejectionReason: ClipCandidate["rejectionReason"];
 };
 
 type SubtitleRow = {
@@ -77,6 +83,12 @@ export function mapRowToProject(args: {
       riskNotices: c.riskNotices,
       subtitles: candidateSubtitles,
       previewStatus: c.previewStatus,
+      recommendation: c.recommendation,
+      topicLabel: c.topicLabel,
+      editingNote: c.editingNote,
+      boundaryReason: c.boundaryReason,
+      needsSetup: c.needsSetup,
+      rejectionReason: c.rejectionReason,
     };
   });
 

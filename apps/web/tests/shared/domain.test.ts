@@ -6,10 +6,10 @@ import {
 } from "@clipwise/shared";
 
 describe("Clipwise 领域模型", () => {
-  it("按分数映射推荐等级", () => {
-    expect(getRecommendationLevel(90)).toBe("强推荐");
-    expect(getRecommendationLevel(75)).toBe("推荐");
-    expect(getRecommendationLevel(59)).toBe("可选");
+  it("maps model recommendation tiers to Chinese labels", () => {
+    expect(getRecommendationLevel("strong")).toBe("强推荐");
+    expect(getRecommendationLevel("recommended")).toBe("推荐");
+    expect(getRecommendationLevel("backup")).toBe("备选");
   });
 
   it("演示项目默认包含 5 个展示候选和 7 个总候选", () => {

@@ -1,4 +1,10 @@
-import type { ClipCandidate, ClipType, ClipwiseProject } from "./domain";
+import type {
+  ClipCandidate,
+  ClipType,
+  ClipwiseProject,
+  Recommendation,
+  RejectionReason,
+} from "./domain";
 
 type CandidateSeed = {
   id: string;
@@ -12,6 +18,12 @@ type CandidateSeed = {
   quote: string;
   recommendationReason: string;
   riskNotices?: string[];
+  recommendation?: Recommendation;
+  topicLabel?: string;
+  editingNote?: string;
+  boundaryReason?: string;
+  needsSetup?: boolean;
+  rejectionReason?: RejectionReason;
 };
 
 function createCandidate(seed: CandidateSeed): ClipCandidate {
@@ -38,6 +50,12 @@ function createCandidate(seed: CandidateSeed): ClipCandidate {
       },
     ],
     previewStatus: "not_previewed",
+    recommendation: seed.recommendation ?? "recommended",
+    topicLabel: seed.topicLabel ?? seed.type,
+    editingNote: seed.editingNote ?? "",
+    boundaryReason: seed.boundaryReason ?? "",
+    needsSetup: seed.needsSetup ?? false,
+    rejectionReason: seed.rejectionReason ?? "none",
   };
 }
 

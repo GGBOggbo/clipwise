@@ -46,7 +46,7 @@ export function CandidateCard({
       <div className={styles.meta}>
         <div>
           <span>{candidate.type}</span>
-          <strong>{getRecommendationLevel(candidate.finalScore)}</strong>
+          <strong>{getRecommendationLevel(candidate.recommendation)}</strong>
         </div>
         <time data-testid="candidate-time">
           {formatClock(candidate.startMs)} – {formatClock(candidate.endMs)} ·{" "}

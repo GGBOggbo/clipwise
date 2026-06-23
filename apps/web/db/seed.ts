@@ -41,6 +41,12 @@ async function seed() {
       quote: c.quote,
       recommendationReason: c.recommendationReason,
       riskNotices: [...c.riskNotices],
+      recommendation: c.recommendation,
+      topicLabel: c.topicLabel,
+      editingNote: c.editingNote,
+      boundaryReason: c.boundaryReason,
+      needsSetup: c.needsSetup,
+      rejectionReason: c.rejectionReason,
       previewStatus: c.previewStatus,
     });
 
