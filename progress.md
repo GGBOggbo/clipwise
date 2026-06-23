@@ -48,7 +48,7 @@
 
 ### 当前阶段：DeepSeek 高光发现
 
-- **状态：** implementation_complete_e2e_pending
+- **状态：** complete
 - 已完成：
   - DeepSeek Worker 配置、依赖和 env 示例。
   - strict tool schema、Pydantic 数据契约和契约测试。
@@ -58,9 +58,10 @@
   - 候选/字幕单事务替换；初次失败和重新生成失败状态分流。
   - Pipeline 删除生产 mock 候选路径，改为真实 DeepSeek 管线。
   - Web 集成测试移除固定 7 候选和假音频假设。
+  - 真实 DeepSeek strict tool schema 修复：内联 `$ref/$defs`。
+  - Web 页面真实上传用户 8 分钟视频并生成 3 条候选。
+  - DeepSeek duplicate 决策不一致时，业务层做确定性保留纠偏。
 - 下一步：
-  - 完成文档审计和全量自动验证。
-  - 等用户提供 DeepSeek key 后做真实端到端验收。
   - Phase 4.1 长视频完整分片与 Phase 6 导出单独规划。
 
 ### 临时复查：项目页视觉与交互
@@ -92,11 +93,90 @@
 |------|------|------|
 | Worker Phase 5 局部/全量测试 | 实现过程中已跑到 60 条通过 | PASS |
 | Web 非真实集成 smoke | `create-to-ready`、`sse-flow` 通过 | PASS |
-| 最终 Worker 全量测试 | 60 条通过 | PASS |
+| 最终 Worker 全量测试 | 65 条通过 | PASS |
 | Web 单测 | 35 个文件、91 条测试通过 | PASS |
 | Web 非真实集成 smoke | 2 个文件、2 条测试通过 | PASS |
 | E2E | Chromium/WebKit 共 8 条通过 | PASS |
 | lint / build / diff / migration drift | lint、带 DATABASE_URL 的 build、diff、db:generate 均通过 | PASS |
+| Web 页面真实上传 | 用户 8 分钟 MP4 生成 3 条候选，自动溯源 passed | PASS |
+
+## 会话：2026-06-23 需求复查与播放器修复
+
+- **状态：** complete
+- 已完成：
+  - 接管用户 Chrome 中的 `http://localhost:3000/project/K2NgL4GlXyJbl3_d0fOgppsE2E0ONzo2` 项目页。
+  - 确认候选区显示 `3 / 3 个候选`，不是前端隐藏了更多候选。
+  - 测量视频布局：播放器容器高 280px，video 元素高约 536.9px，被 `overflow:hidden` 裁切，导致播放区域显示不完整。
+  - 查询真实项目数据库：`K2NgL4Gl...` 有 3 条候选，分数为 88、82、80；transcript 覆盖约 7分59秒。
+  - 用真实 transcript 重放确定性窗口生成：326 段 transcript 生成 10 个约 90 秒窗口。
+  - 对照原 SPEC v0.2 与用户新描述：当前 MVP 是 TOP10/TOP5 口径，用户目标已升级为 3h 视频、约 30 条建议、30 个 MP4 本地批量输出、剪辑师挑 2–3 条精修。
+  - 使用 TDD 修复播放器裁切：先补 E2E 断言复现 `videoHeight 536.90625 > playerHeight 280`，再将 video 绝对定位填满播放器容器。
+  - 验证 `project-interactions.spec.ts` 在 Chromium/WebKit 共 4 条通过，`pnpm --filter @clipwise/web lint` 通过。
+- 结论：
+  - 当前 Phase 5 能生成真实候选，但召回数量、长视频能力和导出能力都还不满足用户新确认的剪辑师工作流。
+  - 播放器裁切 bug 已修复；后续需要规划 Phase 4.1/5.1/6 的业务目标校准。
+
+## 会话：2026-06-23 压缩前交接
+
+- **状态：** ready_for_context_compaction
+- 当前用户意图：
+  - 用户准备压缩上下文；压缩后继续实施 Phase 5.1。
+  - 下一步重点是「剪辑师素材召回」，不是继续解释概念，也不是直接做 Phase 6 导出。
+- 当前工作区：
+  - worktree：`/Users/chk/Documents/Codex/2026-06-22/z-g/.worktrees/phase5-deepseek`
+  - 分支：`codex/phase5-deepseek`
+  - 最新代码提交：`54263c9 fix: tolerate inconsistent deepseek duplicate decisions`
+  - 未提交改动：播放器 CSS 修复、项目交互 E2E 回归、`task_plan.md`、`findings.md`、`progress.md`
+- 已验证的最新改动：
+  - 播放器 bug 先红后绿：修复前 E2E 复现 `videoHeight 536.90625 > playerHeight 280`。
+  - 修复后：`project-interactions.spec.ts` 在 Chromium/WebKit 共 4 条通过。
+  - `pnpm --filter @clipwise/web lint` 通过。
+  - `git diff --check` 通过。
+- 压缩后恢复顺序：
+  1. 读取 `task_plan.md`、`findings.md`、`progress.md`、`docs/phase-5-verification.md`。
+  2. 检查 `git status --short`，确认只包含当前已知改动。
+  3. 如要继续实施，先写 Phase 5.1 规格文档，明确数据契约、prompt、持久化、前端展示和评测方法。
+  4. 再按 TDD 修改 Worker strict models / DeepSeek tool schema / pipeline / persistence / API/frontend。
+- Phase 5.1 核心口径：
+  - 目标：从 3h 直播中召回约 30 条 1–3 分钟剪辑建议，帮助剪辑师挑 2–3 条精修。
+  - 不是判断爆款成片，而是判断「剪辑师是否值得点开这段看一眼」。
+  - 模型输出离散档位 strong/recommended/backup/reject，`finalScore` 只作排序辅助。
+  - 评分维度采用 4+1：信息密度、钩子强度、独立可懂、可剪成片、否决项。
+  - 新增核心字段：`topicLabel`、`editingNote`、`boundaryReason`、`needsSetup`。
+  - 需要主题分散机制，避免 Top 30 都集中在同一话题。
+  - 需要窗口级评分/淘汰原因持久化，解决「为什么只有这些候选」的可解释性问题。
+  - 需要剪辑师人工标注留出集，用来校准阈值、否决项和 prompt。
+- 当前真实链路备忘：
+  - 完整 MP4 不上传服务器。
+  - 浏览器本地用 ffmpeg.wasm 抽 mp3：16kHz、单声道、48kbps。
+  - 8 分钟视频当前会上传 1 个音频块；长视频完整分片仍是 Phase 4.1 缺口。
+  - 音频块会临时存服务器，ASR 成功后删除。
+  - transcript_segments 会持久化，供候选生成、重试、字幕、SRT/TXT 导出使用。
+  - 当前 DeepSeek 评分按最多 12 个窗口一批串行调用，不具备跨请求记忆。
+  - 当前候选详情按最多 5 个候选一批串行调用。
+  - 当前最终写入最多 10 条候选，Phase 5.1 要升级为约 30 条素材建议。
+
+## 会话：2026-06-23 压缩后恢复与 Phase 5.1 规格
+
+- **状态：** spec_written_pending_review
+- 已完成：
+  - 重新读取 `task_plan.md`、`findings.md`、`progress.md` 和 `docs/phase-5-verification.md`。
+  - 检查当前分支仍为 `codex/phase5-deepseek`。
+  - 确认未提交改动仍是预期内的播放器 CSS 修复、项目交互 E2E 回归、三份 planning 文件更新。
+  - 复查当前 Phase 5 Worker/Web 代码边界：现有模型仍按知识高光评分，最终最多 10 条，前端推荐标签仍由分数推导，数据库不保存窗口评分/淘汰原因。
+  - 写入 Phase 5.1 规格文档：`docs/superpowers/specs/2026-06-23-clipwise-phase5-1-editor-recall-design.md`。
+  - 自查规格文档无 `TBD`、`TODO` 等占位词。
+- 规格要点：
+  - Phase 5.1 的目标是剪辑师素材召回，不是成片爆款判断。
+  - 不解决 3h 完整分片或本地 MP4 批量导出；这两个仍分别归 Phase 4.1 和 Phase 6.1。
+  - 窗口目标调整为 120 秒，允许 60–180 秒。
+  - DeepSeek 直接输出 `strong`、`recommended`、`backup`、`reject`，`finalScore` 只用于排序辅助。
+  - 每个窗口输出 4+1 评分维度和 `topicLabel`，最终候选新增 `editingNote`、`boundaryReason`、`needsSetup`。
+  - 新增 `highlight_window_scores` 持久化窗口评分、淘汰原因和选择状态。
+  - 最终选择通过 topicLabel 软配额做主题分散，长直播目标约 30 条，短样本不足时不补假候选。
+- 下一步：
+  - 等用户确认规格方向后，使用 writing-plans 写 Phase 5.1 实施计划。
+  - 实施计划完成后再按 TDD 改 strict models、DeepSeek schema、pipeline、DB migration、API/shared domain 和前端展示。
 
 ## 错误日志
 
@@ -115,22 +195,23 @@
 | 2026-06-23 | Groq 直接接收 96.8MB 原视频返回 413 | 1 | 用 macOS `avconvert` 抽取前 120 秒 m4a 样本做真实验收；长视频自动分片留给 Phase 4.1 |
 | 2026-06-23 | DeepSeek strict tool 对 `$ref/$defs` 嵌套 schema 约束不足 | 1 | 生成工具 schema 时内联 `$ref/$defs`，再用 Pydantic 和业务校验兜底 |
 | 2026-06-23 | DeepSeek 语义去重偶发返回不一致 duplicate 决策 | 1 | 业务层对“指向未保留候选/指向更低分候选”的重复关系做本地保留纠偏 |
+| 2026-06-23 | Chrome 项目页视频显示不完整 | 1 | 定位为 video 元素高度按 16:9 宽度膨胀到约 536.9px，被 280px 播放器容器裁切；已修复为绝对定位填充容器并 contain 缩放 |
 
 ## 工作区状态
 
 - 分支：`codex/phase5-deepseek`
 - worktree：`.worktrees/phase5-deepseek`
-- 最新代码提交：`c8f2326 test: remove fixed mock candidate assumptions`
+- 最新代码提交：`54263c9 fix: tolerate inconsistent deepseek duplicate decisions`
 - 未跟踪文件：`outputs/clipwise-test-video.mp4`
 - 开发服务器：`http://localhost:3000`
-- 当前页面：未固定；Phase 5 主要在 Worker 和集成测试层完成。
+- 当前服务：Web 和 Worker 仍在运行；打开 `http://localhost:3000` 可查看项目 `K2NgL4Gl...` 的 3 条真实候选。
 
 ## 五问重启检查
 
 | 问题 | 答案 |
 |------|------|
-| 我在哪里？ | `task_plan.md` 阶段 5：DeepSeek 高光发现收尾 |
-| 我要去哪里？ | 自动验证 → 真实 DeepSeek E2E → Phase 4.1 长视频完整分片 → Phase 6 真实导出 |
+| 我在哪里？ | `task_plan.md` 阶段 5.1：剪辑师素材召回规格化与实施准备 |
+| 我要去哪里？ | Phase 5.1 规格/实施 → Phase 4.1 长视频完整分片 → Phase 6 真实导出 |
 | 目标是什么？ | 完成长直播自动发现高光、编辑和本地导出的 Clipwise MVP |
 | 我学到了什么？ | 见 `findings.md` |
 | 我做了什么？ | 见本日志及 Git 提交历史 |

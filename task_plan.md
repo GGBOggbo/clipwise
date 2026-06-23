@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-阶段 5：DeepSeek 高光发现实现收尾与验收
+阶段 5.1：剪辑师素材召回规格化与实施准备
 
 ## 各阶段
 
@@ -63,8 +63,17 @@
 - [x] 生成标题、摘要、原文金句、推荐理由和风险提示
 - [x] 将真实 clips 持久化并接入项目页读取路径
 - [x] 删除 Worker 生产 mock candidate 路径
-- [ ] 使用用户提供的真实 DeepSeek key 完成端到端人工验收
-- **状态：** implementation_complete_e2e_pending
+- [x] 使用用户提供的真实 DeepSeek key 完成端到端人工验收
+- [x] Web 页面真实上传 8 分钟视频并生成真实候选
+- [ ] Phase 5.1：按剪辑师工作流重新校准召回目标，从 TOP 10 升级到约 30 条片段建议，并持久化淘汰原因/评分过程用于解释
+  - [x] 编写 Phase 5.1 规格文档，明确「剪辑师素材召回」不是「成片爆款判断」
+  - [ ] 将评分从通用内容质量改为 4+1：信息密度、钩子强度、独立可懂、可剪成片、否决项
+  - [ ] 模型输出离散推荐档位：strong/recommended/backup/reject，`finalScore` 仅作排序辅助
+  - [ ] 新增剪辑师核心字段：`topicLabel`、`editingNote`、`boundaryReason`、`needsSetup`
+  - [ ] 建立窗口级评分/淘汰原因持久化，支持解释「为什么留下/淘汰」
+  - [ ] 设计主题分散机制，避免 30 条素材集中在同一话题
+  - [ ] 设计剪辑师人工标注留出集，用于校准阈值、否决项和 prompt
+- **状态：** complete
 
 ### 阶段 6：本地切片与真实导出
 
@@ -73,6 +82,7 @@
 - [ ] 生成 SRT 和 TXT
 - [ ] 实现当前片段导出
 - [ ] 实现 TOP 5 顺序处理与 ZIP 打包
+- [ ] Phase 6.1：支持约 30 个 1–3 分钟 MP4 批量导出到本地，服务剪辑师二次筛选
 - [ ] 验证完整原视频不上传服务器
 - **状态：** pending
 
@@ -122,6 +132,9 @@
 | Worker 测试环境未安装 pytest | 1 | 使用 `uv sync --frozen --extra dev` 安装 dev extra |
 | 本机代理变量影响 Python SDK/httpx 初始化 | 1 | Worker 测试命令中显式 unset proxy 环境变量 |
 | 旧 Web 集成测试上传 3 字节假音频并假设固定 7 候选 | 1 | 分层为 Web/API/SSE 测试、真实 ASR 测试、可选真实 DeepSeek E2E |
+| DeepSeek strict tool 对 `$ref/$defs` 嵌套 schema 约束不足 | 1 | 生成工具 schema 时内联引用，继续用 Pydantic 和业务校验兜底 |
+| DeepSeek 语义去重偶发返回不一致 duplicate 决策 | 1 | 业务层对指向未保留候选/更低分候选的重复关系做本地保留纠偏 |
+| Chrome 项目页视频显示不完整 | 1 | 将 video 绝对定位填满播放器容器，由 `object-fit: contain` 在框内缩放 |
 
 ## 需求真源
 
@@ -138,3 +151,6 @@
 - `packages/shared/src/fixtures.ts` 和测试/seed 仍可保留演示 fixture；Worker 生产候选路径不得导入 fixture 或 mock。
 - 下一次继续开发前，先读取 `task_plan.md`、`findings.md`、`progress.md` 和 `docs/phase-5-verification.md`。
 - Phase 6 前不要顺手实现导出；Phase 4.1 长视频完整分片也应单独规划。
+- 当前 Web/Worker 仍在本机运行，方便用户刷新 `http://localhost:3000` 查看项目 `K2NgL4Gl...` 的 3 条真实候选。
+- 压缩上下文后继续时，优先不要直接改 DeepSeek prompt；先写 Phase 5.1 规格/计划，再按 TDD 改 strict 数据契约、DeepSeek schema、pipeline、持久化和前端展示。
+- Phase 5.1 规格已写入 `docs/superpowers/specs/2026-06-23-clipwise-phase5-1-editor-recall-design.md`；实施前需要基于该规格写详细计划。

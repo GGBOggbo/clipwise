@@ -86,6 +86,7 @@
   - object 需要 `additionalProperties: false`。
   - object 的 properties 全部列入 required。
   - schema 中避免生成 DeepSeek strict 当前不支持的长度/数量约束。
+  - 需要内联 `$ref/$defs`，真实调用中嵌套引用没有稳定约束住 enum/extra field。
 - Worker 内部仍用 Pydantic 二次验证，禁止 extra field、非法枚举和类型漂移。
 - 高光算法参考仓库已归档到 `work/ai-highlight-clip-reference/`。
 - 候选生成管线：
@@ -103,14 +104,50 @@
   - 最终最多写入 10 条候选，rank 连续。
   - subtitle、start/end 和 quote 都以 `transcript_segments` 为真源。
   - 初次生成失败时项目 failed 且不写候选；重新生成失败时保留旧候选并恢复 ready。
+- DeepSeek 语义去重的 duplicate 决策不应直接决定项目成败：
+  - 如果 `duplicateOf` 指向未保留候选，本地改为保留当前候选。
+  - 如果 `duplicateOf` 指向分数更低的候选，本地改为保留当前高分候选。
+  - 这些纠偏只处理去重关系，不放松 quote、字幕、schema 或分数阈值。
+- 2026-06-23 Web 页面实测：
+  - 用户视频 `/Users/chk/Downloads/飞书20260623-131141.mp4` 约 96.8MB。
+  - 直接把原 MP4 给 Groq 会 413；页面路径会先用 ffmpeg.wasm 本地抽音频，真实上传/ASR 成功。
+  - 项目 `K2NgL4Gl...`：Groq ASR succeeded，DeepSeek 候选 succeeded，生成 3 条候选，自动溯源 passed。
+  - Chrome 1470×720 下复查项目页，视频播放器外框高 280px，但 `<video>` 元素实际布局高约 536.9px，被父容器 `overflow:hidden` 裁掉下半部分；根因是 video/grid/intrinsic ratio 高度协商。已修复为让 video 绝对定位填满播放器框，再由 `object-fit: contain` 在框内缩放。
+  - 项目 `K2NgL4Gl...` 的 transcript 共 326 段，覆盖 0–478981ms，滑动窗口生成 10 个约 90 秒窗口，最终只落库 3 条候选；中间 DeepSeek 原始评分和语义去重决策当前未持久化，无法事后精确解释每个淘汰窗口的原因。
+- 用户 2026-06-23 新确认的目标流程更偏剪辑师工作流：3h 直播回放上传后，系统夜间处理，给约 30 条 1–3 分钟片段建议，一键导出 30 个 MP4 到本地，剪辑师再从中挑 2–3 条精修。
+- 该目标比原 SPEC v0.2 的「默认生成 10 个候选、展示 TOP 5、批量导出 TOP 5」更大；需要把 Phase 4.1 长视频分片、Phase 5 候选上限/召回策略、Phase 6 批量导出目标一起重新校准。
+- 2026-06-23 用户提供外部建议稿强调：Phase 5.1 应从「知识高光评审」改成「剪辑师素材召回/选材助手」。建议方向包括：
+  - 评分维度从观点完整性等通用内容质量，收敛为信息密度、钩子强度、独立可懂、可剪成片，加上过渡/闲聊/口误/重复等否决项。
+  - 召回阶段宁可多给剪辑师筛，不要过早用成片标准淘汰潜力素材。
+  - 固定 90 秒窗口容易切断观点；可保留滑动窗口粗扫，但应增加主题边界对齐和边界回退/微调。
+  - 60 分阈值和 80% 重叠去重可能偏精选，若目标是 30 条素材召回，可评估降低召回阈值、收紧重复窗口去重。
+  - 参考材料本身不是权威来源，且有「已搜索」与「不能联网搜索」表述矛盾；只能作为产品设计输入，不作为事实依据。
+- 2026-06-23 用户提供第二份外部建议稿补充 Phase 5.1 三个工程化方向：
+  - 不要只依赖 `finalScore` 绝对值切档；让模型直接输出离散推荐档位，例如 strong/recommended/backup/reject，再用分数排序辅助。
+  - 主题分散应作为独立步骤处理，例如主题/类型配额、聚类后每簇取头部，不能只靠分数 Top-N，否则 30 条容易集中在同一主题。
+  - 建立剪辑师人工标注留出集，用真实直播标注「该留/该杀/边界怎么切」，用于校准阈值、否决项和 prompt；否则 Phase 5.1 只能凭感觉调参。
+  - `editingNote`、`boundaryReason`、`needsSetup` 应视为剪辑师工作流的核心产物字段，而非装饰性说明。
 - 完整原视频留在浏览器；浏览器通过 FFmpeg.wasm 抽取压缩音频。
 - 音频建议 16kHz 单声道、约 20 分钟一块，块之间保留少量重叠。
+- 2026-06-23 Phase 5.1 规格决策：
+  - 规格文档：`docs/superpowers/specs/2026-06-23-clipwise-phase5-1-editor-recall-design.md`。
+  - Phase 5.1 不试图解决 3h 完整音频分片或本地导出；它只校准候选召回、推荐档位、评分解释、主题分散和剪辑师字段。
+  - 窗口参数从 Phase 5 的目标 90 秒调整为目标 120 秒，允许 60–180 秒，步长仍为 45 秒，更贴近 1–3 分钟剪辑素材目标。
+  - 推荐档位由模型直接输出 `strong`、`recommended`、`backup`、`reject`；`finalScore` 只做同档位排序和调试。
+  - `backup` 允许进入最终候选列表，因为召回阶段宁可多给剪辑师看，不应过早按成片标准杀掉潜力素材。
+  - `reject` 默认不在普通项目页展示，先落在窗口评分表中用于解释和调试。
+  - 评分维度固定为 4+1：`informationDensity`、`hookStrength`、`standaloneClarity`、`editability`、`rejectionReason`。
+  - 新增最终候选字段：`recommendation`、`topicLabel`、`editingNote`、`boundaryReason`、`needsSetup`、`rejectionReason`。
+  - 新增窗口评分表 `highlight_window_scores`，保存每个窗口的评分维度、否决项、话题、选择状态和淘汰/入选原因。
+  - 最终选择使用 topicLabel 软配额：目标 30 条、单主题默认最多 4 条，先分散 strong/recommended，再用 backup 补位；短视频样本不足时不补假候选。
+  - 窗口评分表只在整体候选生成成功后与最终候选同事务落库；生成失败不落半成品解释，重新生成失败保留旧候选和旧评分表。
 
 ## 测试和验收
 
 - 最新已验证：
-  - Phase 5 Worker 单元/集成测试：实现过程中已通过 60 条 Worker 测试。
+  - Phase 5 Worker 单元/集成测试：最新 65 条 Worker 测试通过。
   - Phase 5 Web 非真实集成 smoke：`create-to-ready`、`sse-flow` 已通过。
+  - Web 页面真实上传 8 分钟 MP4：生成 3 条候选，项目 ready。
   - 最终全量自动验收记录见 `docs/phase-5-verification.md`。
 - 已验证桌面尺寸：1024×768、1280×720、1440×900。
 - 已验证上传页标题单行、原始三枚 SVG 图标、拖拽选择和格式错误提示。
@@ -138,10 +175,11 @@
   - `530aab4` 增加候选原子持久化
   - `d6e811d` 用 DeepSeek 管线替换 Worker mock 候选
   - `c8f2326` 移除固定 mock 候选测试假设
+  - `e39fa99` 真实 DeepSeek 候选验收与 schema ref 内联
+  - `54263c9` 容忍并纠正 DeepSeek 不一致 duplicate 决策
 
 ## 未完成边界
 
-- 真实 DeepSeek E2E 仍等待用户提供新的 API key 与可验收项目 token。
 - Phase 4.1：长视频完整时长分片、偏移合并和重叠处理仍需单独规划。
 - Phase 6：FFmpeg.wasm 本地切片、SRT/TXT/ZIP 导出尚未实现。
 - 前端 seed/tests/fixtures 可以保留演示数据；Worker 生产候选路径不得回退 mock。
