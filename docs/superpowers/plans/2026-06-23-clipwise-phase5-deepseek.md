@@ -1111,7 +1111,7 @@ Expected: 不产生新 migration。
 - Modify: `services/worker/.env`（ignored，不提交）
 - Modify: `docs/phase-5-verification.md`
 
-- [ ] **Step 1: 用户提供并配置新的 DeepSeek Key**
+- [x] **Step 1: 用户提供并配置新的 DeepSeek Key**
 
 只写入：
 
@@ -1121,7 +1121,7 @@ services/worker/.env
 
 不得写入 `NEXT_PUBLIC_*`，不得在日志、测试输出或提交中展示 key。
 
-- [ ] **Step 2: 选择现有真实 transcript 项目**
+- [x] **Step 2: 选择现有真实 transcript 项目**
 
 查询：
 
@@ -1135,7 +1135,7 @@ ORDER BY segment_count DESC;
 
 选取 segment 足够、内容可人工核对的项目。删除该项目旧固定候选后创建一个新的 `generate_candidates` job；保留项目和 transcript。
 
-- [ ] **Step 3: 启动服务并运行真实任务**
+- [x] **Step 3: 启动服务并运行真实任务**
 
 ```bash
 pnpm db:up
@@ -1155,7 +1155,7 @@ pnpm --filter @clipwise/web exec vitest run \
 
 Expected: job succeeded，project ready，候选数量 1–10。
 
-- [ ] **Step 4: 自动溯源检查**
+- [x] **Step 4: 自动溯源检查**
 
 对所有候选验证：
 
@@ -1166,7 +1166,7 @@ Expected: job succeeded，project ready，候选数量 1–10。
 - finalScore >= 60。
 - 候选两两时间重叠不超过较短候选 80%。
 
-- [ ] **Step 5: 浏览器人工抽查**
+- [x] **Step 5: 浏览器人工抽查**
 
 访问：
 

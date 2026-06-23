@@ -87,3 +87,19 @@ def test_strict_tool_schema_requires_every_property(model, name):
     assert tool["function"]["name"] == name
     assert tool["function"]["strict"] is True
     assert_deepseek_strict_object(tool["function"]["parameters"])
+
+
+@pytest.mark.parametrize(
+    ("model", "name"),
+    [
+        (ScoreBatchResponse, "submit_window_scores"),
+        (SelectionResponse, "submit_candidate_selection"),
+        (DetailBatchResponse, "submit_candidate_details"),
+    ],
+)
+def test_strict_tool_schema_inlines_refs_for_deepseek(model, name):
+    tool = build_strict_tool_schema(model, name, "提交结构化结果")
+    encoded = str(tool["function"]["parameters"])
+
+    assert "$defs" not in encoded
+    assert "$ref" not in encoded

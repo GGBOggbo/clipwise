@@ -112,6 +112,8 @@
 | 2026-06-23 | 旧集成测试依赖假音频和固定 7 候选 | 1 | 拆成 Web/API/SSE smoke、真实 ASR 和可选真实 DeepSeek E2E |
 | 2026-06-23 | E2E 布局测试绑定可变 demo 标题，autosave 后找不到旧标题 | 1 | 改为按第一张候选卡稳定选择，并等待 autosave 完成 |
 | 2026-06-23 | `pnpm build` 在未设置 `DATABASE_URL` 的 shell 失败 | 1 | 用本地开发 `DATABASE_URL` 执行 build，并在验收记录中标明该约束 |
+| 2026-06-23 | Groq 直接接收 96.8MB 原视频返回 413 | 1 | 用 macOS `avconvert` 抽取前 120 秒 m4a 样本做真实验收；长视频自动分片留给 Phase 4.1 |
+| 2026-06-23 | DeepSeek strict tool 对 `$ref/$defs` 嵌套 schema 约束不足 | 1 | 生成工具 schema 时内联 `$ref/$defs`，再用 Pydantic 和业务校验兜底 |
 
 ## 工作区状态
 

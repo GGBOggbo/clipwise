@@ -115,12 +115,41 @@ class FinalCandidate(StrictModel):
 
 _UNSUPPORTED_STRICT_KEYWORDS = {
     "default",
+    "$defs",
     "minItems",
     "maxItems",
     "minLength",
     "maxLength",
     "title",
 }
+
+
+def _inline_json_schema_refs(node: Any, defs: dict[str, Any]) -> Any:
+    if isinstance(node, list):
+        return [_inline_json_schema_refs(item, defs) for item in node]
+    if not isinstance(node, dict):
+        return node
+
+    ref = node.get("$ref")
+    if isinstance(ref, str) and ref.startswith("#/$defs/"):
+        name = ref.removeprefix("#/$defs/")
+        if name not in defs:
+            raise ValueError(f"unknown schema ref: {ref}")
+        merged = {
+            **_inline_json_schema_refs(defs[name], defs),
+            **{
+                key: _inline_json_schema_refs(value, defs)
+                for key, value in node.items()
+                if key != "$ref"
+            },
+        }
+        return merged
+
+    return {
+        key: _inline_json_schema_refs(value, defs)
+        for key, value in node.items()
+        if key != "$defs"
+    }
 
 
 def _normalize_strict_schema(node: Any) -> Any:
@@ -146,7 +175,12 @@ def build_strict_tool_schema(
     name: str,
     description: str,
 ) -> dict[str, Any]:
-    parameters = _normalize_strict_schema(model.model_json_schema(by_alias=True))
+    raw_schema = model.model_json_schema(by_alias=True)
+    inlined_schema = _inline_json_schema_refs(
+        raw_schema,
+        raw_schema.get("$defs", {}),
+    )
+    parameters = _normalize_strict_schema(inlined_schema)
     return {
         "type": "function",
         "function": {
