@@ -4,19 +4,12 @@ import { useRouter } from "next/navigation";
 import { useTaskProgress } from "@/features/task-progress/useTaskProgress";
 import styles from "./Editor.module.css";
 
-type Initial = {
-  status: "pending" | "running" | "succeeded" | "failed";
-  progress: number;
-  message: string;
-};
-
 type Props = {
   taskId: string;
   projectToken: string;
-  initial: Initial;
 };
 
-export function TaskProgressClient({ taskId, projectToken, initial }: Props) {
+export function TaskProgressClient({ taskId, projectToken }: Props) {
   const router = useRouter();
   const state = useTaskProgress({
     taskId,

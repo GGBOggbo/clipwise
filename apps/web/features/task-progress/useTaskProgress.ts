@@ -47,12 +47,16 @@ export function useTaskProgress({
   const eventSourceRef = useRef<EventSource | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastMessageAtRef = useRef<number>(Date.now());
+  const lastMessageAtRef = useRef<number>(0);
   const completedFiredRef = useRef(false);
   const onCompletedRef = useRef(onCompleted);
-  onCompletedRef.current = onCompleted;
   const onFailedRef = useRef(onFailed);
-  onFailedRef.current = onFailed;
+
+  // 在 effect 里同步最新回调到 ref，避免 render 期间访问 ref（React 19 purity 规则）
+  useEffect(() => {
+    onCompletedRef.current = onCompleted;
+    onFailedRef.current = onFailed;
+  });
 
   const applyEvent = (data: {
     status: TaskProgressState["status"];

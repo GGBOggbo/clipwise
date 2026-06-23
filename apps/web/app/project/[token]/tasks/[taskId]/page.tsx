@@ -17,8 +17,6 @@ export default async function TaskPage({ params }: Props) {
   }
   const task = (await resp.json()) as {
     status: "pending" | "running" | "succeeded" | "failed";
-    progress: number;
-    message: string;
   };
 
   // 任务已完成，直接跳项目页（项目此时已 ready）
@@ -26,15 +24,5 @@ export default async function TaskPage({ params }: Props) {
     redirect(`/project/${token}`);
   }
 
-  return (
-    <TaskProgressClient
-      taskId={taskId}
-      projectToken={token}
-      initial={{
-        status: task.status,
-        progress: task.progress,
-        message: task.message ?? "等待开始",
-      }}
-    />
-  );
+  return <TaskProgressClient taskId={taskId} projectToken={token} />;
 }

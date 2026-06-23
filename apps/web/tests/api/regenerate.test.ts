@@ -4,8 +4,13 @@ import { POST } from "@/app/api/projects/[token]/regenerate/route";
 import { db, schema } from "@/db/client";
 
 describe("POST /api/projects/:token/regenerate", () => {
-  // 测试会让 demo-project 的 regenerationCount 增长，结束后重置
+  // 测试会让 demo-project 的 regenerationCount 增长并创建 job。
+  // Worker 后台会领取这些 job 并调 mock_ai 删除重插候选，
+  // 导致跨测试数据竞态。afterAll 重置 project 状态并清理测试 job。
   afterAll(async () => {
+    await db
+      .delete(schema.jobs)
+      .where(eq(schema.jobs.projectToken, "demo-project"));
     await db
       .update(schema.projects)
       .set({ regenerationCount: 0, status: "ready" })
@@ -28,6 +33,9 @@ describe("POST /api/projects/:token/regenerate", () => {
     expect(response.status).toBe(202);
     const body = await response.json();
     expect(body.taskId).toBeDefined();
+
+    // 立即删除刚创建的 job，防止后台 Worker 领取后调 mock_ai 删候选造成跨测试污染
+    await db.delete(schema.jobs).where(eq(schema.jobs.taskId, body.taskId));
   });
 
   it("超过 1 次重新生成返回 409", async () => {

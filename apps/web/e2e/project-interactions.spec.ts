@@ -4,6 +4,27 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/project/demo-project");
 });
 
+// Phase 3 接通真实 PATCH 后，编辑会真写 DB（autosave → patchCandidate）。
+// 测试结尾用 afterEach 恢复 candidate-1 的原始标题，避免污染后续测试。
+const ORIGINAL_TITLE = "为什么很多人做 AI 应用第一步就错了";
+
+test.afterEach(async () => {
+  // 用 fetch 直接 PATCH 恢复，绕过 UI
+  const base = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+  await fetch(`${base}/api/projects/demo-project/candidates/candidate-1`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      selectedTitle: ORIGINAL_TITLE,
+      titleOptions: [
+        ORIGINAL_TITLE,
+        "AI 应用失败，往往不是模型问题",
+        "做 AI 产品前，先问清楚这个问题",
+      ],
+    }),
+  }).catch(() => {});
+});
+
 test("候选选择、编辑、导出提醒和列表操作", async ({ page }) => {
   await page
     .getByRole("button", {

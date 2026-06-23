@@ -17,13 +17,7 @@ describe("TaskProgressClient", () => {
   beforeEach(() => vi.restoreAllMocks());
 
   it("渲染进度条和当前阶段文案", () => {
-    render(
-      <TaskProgressClient
-        taskId="t1"
-        projectToken="p1"
-        initial={{ status: "running", progress: 60, message: "正在分析内容" }}
-      />,
-    );
+    render(<TaskProgressClient taskId="t1" projectToken="p1" />);
     expect(screen.getByText("正在分析内容")).toBeVisible();
     expect(screen.getByRole("progressbar")).toHaveAttribute(
       "aria-valuenow",
@@ -40,13 +34,7 @@ describe("TaskProgressClient", () => {
       errorCode: "processing_failed",
       isPolling: false,
     });
-    render(
-      <TaskProgressClient
-        taskId="t2"
-        projectToken="p2"
-        initial={{ status: "failed", progress: 30, message: "处理失败" }}
-      />,
-    );
+    render(<TaskProgressClient taskId="t2" projectToken="p2" />);
     expect(screen.getByText("处理失败")).toBeVisible();
     expect(screen.getByRole("button", { name: "重试" })).toBeVisible();
   });
