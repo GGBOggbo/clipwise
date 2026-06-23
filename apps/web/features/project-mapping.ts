@@ -31,12 +31,13 @@ type CandidateRow = {
   recommendationReason: string;
   riskNotices: string[];
   previewStatus: ClipCandidate["previewStatus"];
-  recommendation: ClipCandidate["recommendation"];
+  // Drizzle text() 列返回 string；worker 永远从严格枚举写入合法值，返回时再窄化
+  recommendation: string;
   topicLabel: string;
   editingNote: string;
   boundaryReason: string;
   needsSetup: boolean;
-  rejectionReason: ClipCandidate["rejectionReason"];
+  rejectionReason: string;
 };
 
 type SubtitleRow = {
@@ -83,12 +84,12 @@ export function mapRowToProject(args: {
       riskNotices: c.riskNotices,
       subtitles: candidateSubtitles,
       previewStatus: c.previewStatus,
-      recommendation: c.recommendation,
+      recommendation: c.recommendation as ClipCandidate["recommendation"],
       topicLabel: c.topicLabel,
       editingNote: c.editingNote,
       boundaryReason: c.boundaryReason,
       needsSetup: c.needsSetup,
-      rejectionReason: c.rejectionReason,
+      rejectionReason: c.rejectionReason as ClipCandidate["rejectionReason"],
     };
   });
 

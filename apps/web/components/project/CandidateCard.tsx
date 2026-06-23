@@ -46,7 +46,11 @@ export function CandidateCard({
       <div className={styles.meta}>
         <div>
           <span>{candidate.type}</span>
-          <strong>{getRecommendationLevel(candidate.recommendation)}</strong>
+          <strong>
+            {candidate.recommendation === "reject"
+              ? "不推荐"
+              : getRecommendationLevel(candidate.recommendation)}
+          </strong>
         </div>
         <time data-testid="candidate-time">
           {formatClock(candidate.startMs)} – {formatClock(candidate.endMs)} ·{" "}
