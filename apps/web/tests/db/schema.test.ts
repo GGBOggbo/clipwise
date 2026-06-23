@@ -7,6 +7,7 @@ import {
   subtitleLines,
   jobs,
   exportArtifacts,
+  highlightWindowScores,
 } from "@/db/schema";
 
 describe("drizzle schema 定义了 7 张表", () => {
@@ -44,5 +45,27 @@ describe("drizzle schema 定义了 7 张表", () => {
     expect(subtitleLines).toBeDefined();
     expect(jobs).toBeDefined();
     expect(exportArtifacts).toBeDefined();
+    expect(highlightWindowScores).toBeDefined();
+  });
+
+  it("defines editor recall fields on clip candidates", () => {
+    expect(clipCandidates.recommendation).toBeDefined();
+    expect(clipCandidates.topicLabel).toBeDefined();
+    expect(clipCandidates.editingNote).toBeDefined();
+    expect(clipCandidates.boundaryReason).toBeDefined();
+    expect(clipCandidates.needsSetup).toBeDefined();
+    expect(clipCandidates.rejectionReason).toBeDefined();
+  });
+
+  it("defines highlight window score audit table", () => {
+    expect(highlightWindowScores.id).toBeDefined();
+    expect(highlightWindowScores.projectToken).toBeDefined();
+    expect(highlightWindowScores.windowId).toBeDefined();
+    expect(highlightWindowScores.recommendation).toBeDefined();
+    expect(highlightWindowScores.informationDensity).toBeDefined();
+    expect(highlightWindowScores.hookStrength).toBeDefined();
+    expect(highlightWindowScores.standaloneClarity).toBeDefined();
+    expect(highlightWindowScores.editability).toBeDefined();
+    expect(highlightWindowScores.selectionStatus).toBeDefined();
   });
 });

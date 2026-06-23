@@ -5,6 +5,7 @@ import {
   integer,
   timestamp,
   pgEnum,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 export const projectStatusEnum = pgEnum("project_status", [
@@ -114,6 +115,13 @@ export const clipCandidates = pgTable("clip_candidates", {
   quote: text("quote").notNull(),
   recommendationReason: text("recommendation_reason").notNull(),
   riskNotices: text("risk_notices").array().notNull().default([]),
+  // Phase 5.1 editor recall：剪辑师视角的推荐档位与可读理由
+  recommendation: text("recommendation").notNull().default("recommended"),
+  topicLabel: text("topic_label").notNull().default(""),
+  editingNote: text("editing_note").notNull().default(""),
+  boundaryReason: text("boundary_reason").notNull().default(""),
+  needsSetup: boolean("needs_setup").notNull().default(false),
+  rejectionReason: text("rejection_reason").notNull().default("none"),
   previewStatus: previewStatusEnum("preview_status")
     .notNull()
     .default("not_previewed"),
@@ -142,6 +150,34 @@ export const jobs = pgTable("jobs", {
   errorCode: text("error_code"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Phase 5.1：每个被 DeepSeek 评过分的窗口都留痕（含被拒/去重/主题跳过）
+export const highlightWindowScores = pgTable("highlight_window_scores", {
+  id: text("id").primaryKey(),
+  projectToken: text("project_token")
+    .notNull()
+    .references(() => projects.token, { onDelete: "cascade" }),
+  windowId: text("window_id").notNull(),
+  startMs: bigint("start_ms", { mode: "number" }).notNull(),
+  endMs: bigint("end_ms", { mode: "number" }).notNull(),
+  durationMs: bigint("duration_ms", { mode: "number" }).notNull(),
+  segmentIds: text("segment_ids").array().notNull(),
+  textPreview: text("text_preview").notNull(),
+  recommendation: text("recommendation").notNull(),
+  finalScore: integer("final_score").notNull(),
+  type: clipTypeEnum("type").notNull(),
+  informationDensity: integer("information_density").notNull(),
+  hookStrength: integer("hook_strength").notNull(),
+  standaloneClarity: integer("standalone_clarity").notNull(),
+  editability: integer("editability").notNull(),
+  rejectionReason: text("rejection_reason").notNull(),
+  topicLabel: text("topic_label").notNull(),
+  recommendationReason: text("recommendation_reason").notNull(),
+  selectionStatus: text("selection_status").notNull(),
+  selectionReason: text("selection_reason").notNull(),
+  duplicateOfWindowId: text("duplicate_of_window_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const exportArtifacts = pgTable("export_artifacts", {
