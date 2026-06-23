@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-阶段 2：后端任务基础设施
+阶段 5：DeepSeek 高光发现实现收尾与验收
 
 ## 各阶段
 
@@ -25,45 +25,46 @@
 
 ### 阶段 2：数据库、任务 API 与串行异步调度
 
-- [ ] 确定后端运行方式和数据库方案
-- [ ] 设计 projects、tasks、transcripts、clips 等核心数据结构
-- [ ] 实现创建任务 API，立即返回 task ID
-- [ ] 实现协程 task pipeline 主循环
-- [ ] 每次领取创建时间最早的 pending 任务
-- [ ] 串行执行任务并持久化状态、进度和错误
-- [ ] 增加幂等、失败重试和进程重启恢复
-- [ ] 编写单元测试和集成测试
-- **状态：** in_progress
+- [x] 确定后端运行方式和数据库方案
+- [x] 设计 projects、jobs、transcript、clips 等核心数据结构
+- [x] 实现创建项目 / 任务 API，快速返回项目和任务状态
+- [x] 实现 Python Worker 串行任务主循环
+- [x] 每次领取创建时间最早的 pending 任务
+- [x] 串行执行任务并持久化状态、进度和错误
+- [x] 增加任务失败状态和进程重启后的 pending/running 处理边界
+- [x] 编写单元测试和集成测试
+- **状态：** complete
 
 ### 阶段 3：SSE 任务进度
 
-- [ ] 实现任务详情与进度查询 API
-- [ ] 实现 SSE 订阅接口
-- [ ] 后端按任务进度变化推送状态
-- [ ] 前端导航到任务页并订阅 SSE
-- [ ] 增加断线重连与 5 秒轮询兜底
-- [ ] 任务完成后一次性拉取 clips
-- **状态：** pending
+- [x] 实现任务详情与进度查询 API
+- [x] 实现 SSE 订阅接口
+- [x] 后端按任务进度变化推送状态
+- [x] 前端导航到任务页并订阅 SSE
+- [x] 增加断线重连与轮询兜底
+- [x] 任务完成后一次性拉取 clips
+- **状态：** complete
 
 ### 阶段 4：Groq ASR
 
-- [ ] 浏览器本地提取 16kHz 单声道压缩音频
-- [ ] 约 20 分钟一块进行音频分片
-- [ ] 服务端安全调用 Groq `whisper-large-v3`
-- [ ] 合并时间戳、重叠段和分块偏移
-- [ ] 保存标准化 transcript
-- [ ] 增加 ASR 失败重试和错误提示
-- **状态：** pending
+- [x] 浏览器本地提取压缩音频
+- [x] 服务端安全调用 Groq `whisper-large-v3`
+- [x] 保存标准化 transcript
+- [x] 增加 ASR 失败错误提示
+- [ ] Phase 4.1：长视频完整时长分片、合并偏移和重叠段处理
+- **状态：** complete_with_known_gap
 
 ### 阶段 5：DeepSeek 高光发现
 
-- [ ] 生成滑动窗口候选
-- [ ] 使用 DeepSeek 批量评分
-- [ ] 按分数排序并过滤时间重叠
-- [ ] 选出 TOP N 候选
-- [ ] 生成标题、摘要、金句、推荐理由和风险提示
-- [ ] 将真实 clips 接入项目页
-- **状态：** pending
+- [x] 生成 45–150 秒滑动窗口候选，目标 90 秒、步长 45 秒
+- [x] 使用 DeepSeek Beta strict tool calling 批量评分
+- [x] 按 60 分阈值、分数排序和 80% 时间重叠去重
+- [x] 选出最多 10 个真实候选
+- [x] 生成标题、摘要、原文金句、推荐理由和风险提示
+- [x] 将真实 clips 持久化并接入项目页读取路径
+- [x] 删除 Worker 生产 mock candidate 路径
+- [ ] 使用用户提供的真实 DeepSeek key 完成端到端人工验收
+- **状态：** implementation_complete_e2e_pending
 
 ### 阶段 6：本地切片与真实导出
 
@@ -101,6 +102,7 @@
 | 原始完整视频不上传 | 核心隐私与架构边界 |
 | ASR 使用 Groq | 用户指定，默认模型 `whisper-large-v3` |
 | 高光评分与标题使用 DeepSeek | 用户指定 |
+| DeepSeek 输出使用 strict tool calling + Pydantic + 业务校验 | 只靠提示词约束格式不稳；生产路径需要可解析、可验证、可失败 |
 | 高光算法参考 `toki-plus/ai-highlight-clip` | 参考滑动窗口、LLM 评分、排序、去重和 TOP N 管线 |
 | 第一版任务调度先串行 | 先保证正确性、状态恢复和可观测性，再演进并发 |
 | 进度使用 SSE，保留 5 秒轮询兜底 | 兼顾实时体验与弱网/防火墙断连恢复 |
@@ -117,6 +119,9 @@
 | 上传页标题自动换行 | 1 | 恢复原稿 `white-space: nowrap` 和 40px 字号，并增加 E2E 样式测试 |
 | 拖拽入口与“选择回放”按钮重复 | 1 | 合并为单一拖拽/点击/键盘入口 |
 | 开发服务器热更新曾出现 effect 依赖告警 | 1 | 重新检查组件状态并通过全量构建、E2E 和浏览器控制台验证 |
+| Worker 测试环境未安装 pytest | 1 | 使用 `uv sync --frozen --extra dev` 安装 dev extra |
+| 本机代理变量影响 Python SDK/httpx 初始化 | 1 | Worker 测试命令中显式 unset proxy 环境变量 |
+| 旧 Web 集成测试上传 3 字节假音频并假设固定 7 候选 | 1 | 分层为 Web/API/SSE 测试、真实 ASR 测试、可选真实 DeepSeek E2E |
 
 ## 需求真源
 
@@ -129,7 +134,7 @@
 
 ## 备注
 
-- 当前分支：`feature/phase1-frontend`
-- 当前前端仍使用模拟 Provider 和演示候选数据。
-- 下一次继续开发前，先读取 `task_plan.md`、`findings.md` 和 `progress.md`。
-- 做后端重大技术选型前，先解决阶段 2 的五个关键问题。
+- 当前实现分支：`codex/phase5-deepseek`，隔离 worktree 位于 `.worktrees/phase5-deepseek`。
+- `packages/shared/src/fixtures.ts` 和测试/seed 仍可保留演示 fixture；Worker 生产候选路径不得导入 fixture 或 mock。
+- 下一次继续开发前，先读取 `task_plan.md`、`findings.md`、`progress.md` 和 `docs/phase-5-verification.md`。
+- Phase 6 前不要顺手实现导出；Phase 4.1 长视频完整分片也应单独规划。

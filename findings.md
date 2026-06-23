@@ -78,6 +78,15 @@
 - ASR 服务：Groq。
 - 默认 ASR 模型：`whisper-large-v3`。
 - LLM：DeepSeek。
+- DeepSeek Phase 5 使用 Beta strict tool calling，而不是只靠提示词要求 JSON。
+- 结构化输出方案是通用工程模式：原生约束优先，随后解析、schema 校验、业务不变量校验，最后才执行副作用；失败要重试或显式失败，不静默补假数据。
+- DeepSeek strict tool schema 约束：
+  - base URL 使用 `https://api.deepseek.com/beta`。
+  - function schema 设置 `strict: true`。
+  - object 需要 `additionalProperties: false`。
+  - object 的 properties 全部列入 required。
+  - schema 中避免生成 DeepSeek strict 当前不支持的长度/数量约束。
+- Worker 内部仍用 Pydantic 二次验证，禁止 extra field、非法枚举和类型漂移。
 - 高光算法参考仓库已归档到 `work/ai-highlight-clip-reference/`。
 - 候选生成管线：
   1. transcript 标准化
@@ -87,24 +96,30 @@
   5. 时间重叠去重
   6. TOP N
   7. 标题、摘要、金句、推荐理由和风险提示生成
+- Phase 5 实现后的候选约束：
+  - 窗口目标 90 秒，允许 45–150 秒，步长 45 秒。
+  - 只保留 60 分及以上候选。
+  - 时间重叠比例定义为 `overlap / min(duration_a, duration_b)`，超过 0.8 视为重复。
+  - 最终最多写入 10 条候选，rank 连续。
+  - subtitle、start/end 和 quote 都以 `transcript_segments` 为真源。
+  - 初次生成失败时项目 failed 且不写候选；重新生成失败时保留旧候选并恢复 ready。
 - 完整原视频留在浏览器；浏览器通过 FFmpeg.wasm 抽取压缩音频。
 - 音频建议 16kHz 单声道、约 20 分钟一块，块之间保留少量重叠。
 
 ## 测试和验收
 
 - 最新已验证：
-  - Vitest：15 个测试文件、36 个测试通过
-  - Playwright：3 个 E2E 测试通过
-  - ESLint：通过
-  - Next.js 生产构建：通过
+  - Phase 5 Worker 单元/集成测试：实现过程中已通过 60 条 Worker 测试。
+  - Phase 5 Web 非真实集成 smoke：`create-to-ready`、`sse-flow` 已通过。
+  - 最终全量自动验收记录见 `docs/phase-5-verification.md`。
 - 已验证桌面尺寸：1024×768、1280×720、1440×900。
 - 已验证上传页标题单行、原始三枚 SVG 图标、拖拽选择和格式错误提示。
 - 已验证项目页候选、编辑、导出提醒和查看更多流程。
 
 ## Git 状态
 
-- 当前分支：`feature/phase1-frontend`
-- 最新提交：`f701319 fix: restore upload page reference styling`
+- 当前实现分支：`codex/phase5-deepseek`
+- 基线分支：`feature/phase4-asr`
 - 关键提交：
   - `c36a2ce` 初始化工作区
   - `fe6701c` 领域模型与 fixtures
@@ -115,14 +130,21 @@
   - `11fc9f8` 拖拽选择
   - `c256eae` 合并文件选择入口
   - `f701319` 恢复上传页参考样式
+  - `2753a27` 增加 DeepSeek Worker 配置
+  - `a327c6b` 增加 strict 高光数据契约
+  - `8b905a5` 增加确定性窗口筛选
+  - `e8acb04` 增加 strict DeepSeek 客户端
+  - `3e9589c` 增加真实高光生成业务编排
+  - `530aab4` 增加候选原子持久化
+  - `d6e811d` 用 DeepSeek 管线替换 Worker mock 候选
+  - `c8f2326` 移除固定 mock 候选测试假设
 
 ## 未完成边界
 
-- 当前没有真实数据库。
-- 当前没有任务创建 API、worker 或 SSE。
-- 当前没有 Groq 和 DeepSeek API 调用。
-- 当前没有 FFmpeg.wasm 音频提取和真实 MP4 导出。
-- 当前候选、保存和导出均为前端模拟。
+- 真实 DeepSeek E2E 仍等待用户提供新的 API key 与可验收项目 token。
+- Phase 4.1：长视频完整时长分片、偏移合并和重叠处理仍需单独规划。
+- Phase 6：FFmpeg.wasm 本地切片、SRT/TXT/ZIP 导出尚未实现。
+- 前端 seed/tests/fixtures 可以保留演示数据；Worker 生产候选路径不得回退 mock。
 - `outputs/clipwise-test-video.mp4` 是本地测试素材，目前未纳入 Git。
 
 ## 资源
@@ -131,6 +153,7 @@
 - 前端规格：`references/直播回放智能切片工具_前端设计稿合集_v0.2.md`
 - MVP 设计：`docs/superpowers/specs/2026-06-22-clipwise-mvp-design.md`
 - 第一阶段验收：`docs/phase-1-verification.md`
+- 第五阶段验收：`docs/phase-5-verification.md`
 - 前端实施计划：`docs/superpowers/plans/2026-06-22-clipwise-phase1-frontend.md`
 - 拖拽设计：`docs/superpowers/specs/2026-06-22-upload-drag-drop-design.md`
 - 拖拽计划：`docs/superpowers/plans/2026-06-22-upload-drag-drop.md`

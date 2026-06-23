@@ -84,7 +84,7 @@
 - Test: `services/worker/tests/test_db.py`
 - Test: `services/worker/tests/test_deepseek_client.py`
 
-- [ ] **Step 1: 写失败测试——环境变量映射为 DeepSeek 配置**
+- [x] **Step 1: 写失败测试——环境变量映射为 DeepSeek 配置**
 
 在 `services/worker/tests/test_deepseek_client.py` 写：
 
@@ -105,7 +105,7 @@ def test_worker_config_reads_deepseek_settings(monkeypatch):
     assert config.deepseek_output_mode == "strict_tool"
 ```
 
-- [ ] **Step 2: 运行测试，确认因字段不存在而失败**
+- [x] **Step 2: 运行测试，确认因字段不存在而失败**
 
 Run:
 
@@ -116,7 +116,7 @@ uv run pytest tests/test_deepseek_client.py::test_worker_config_reads_deepseek_s
 
 Expected: FAIL，`WorkerConfig` 不接受或没有 `deepseek_*` 字段。
 
-- [ ] **Step 3: 增加依赖和配置字段**
+- [x] **Step 3: 增加依赖和配置字段**
 
 `pyproject.toml` dependencies 增加：
 
@@ -136,7 +136,7 @@ deepseek_output_mode: str = "strict_tool"
 
 `from_env()` 读取四个变量；`DEEPSEEK_API_KEY` 缺失时保存为空字符串，不在 Worker 启动时阻止纯 ASR 任务，候选任务执行时再返回稳定错误码。
 
-- [ ] **Step 4: 更新 env 示例并同步 lock**
+- [x] **Step 4: 更新 env 示例并同步 lock**
 
 Run:
 
@@ -154,7 +154,7 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 DEEPSEEK_OUTPUT_MODE=strict_tool
 ```
 
-- [ ] **Step 5: 运行测试**
+- [x] **Step 5: 运行测试**
 
 Run:
 
@@ -165,7 +165,7 @@ uv run pytest tests/test_deepseek_client.py::test_worker_config_reads_deepseek_s
 
 Expected: PASS。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add .env.example services/worker/.env.example services/worker/pyproject.toml \
@@ -180,7 +180,7 @@ git commit -m "chore: add deepseek worker configuration"
 - Create: `services/worker/clipwise_worker/highlight_models.py`
 - Create: `services/worker/tests/test_deepseek_contracts.py`
 
-- [ ] **Step 1: 写失败测试——Pydantic 禁止额外字段和非法枚举**
+- [x] **Step 1: 写失败测试——Pydantic 禁止额外字段和非法枚举**
 
 测试至少包含：
 
@@ -210,7 +210,7 @@ def test_score_response_rejects_invalid_type():
         })
 ```
 
-- [ ] **Step 2: 运行测试，确认模块不存在**
+- [x] **Step 2: 运行测试，确认模块不存在**
 
 Run:
 
@@ -221,7 +221,7 @@ uv run pytest tests/test_deepseek_contracts.py -v
 
 Expected: FAIL with `ModuleNotFoundError`。
 
-- [ ] **Step 3: 实现严格领域模型**
+- [x] **Step 3: 实现严格领域模型**
 
 定义：
 
@@ -285,7 +285,7 @@ class DetailBatchResponse(StrictModel):
 
 另外定义 `ScoredWindow`、`FinalCandidateInput` 和 `FinalCandidate` 供业务层使用，字段全部使用 snake_case。
 
-- [ ] **Step 4: 写失败测试——生成的 strict schema 满足 DeepSeek 约束**
+- [x] **Step 4: 写失败测试——生成的 strict schema 满足 DeepSeek 约束**
 
 测试递归检查每个 object：
 
@@ -302,7 +302,7 @@ def assert_deepseek_strict_object(schema):
         assert_deepseek_strict_object(child)
 ```
 
-- [ ] **Step 5: 实现 schema 清理函数**
+- [x] **Step 5: 实现 schema 清理函数**
 
 实现 `build_strict_tool_schema(model, name, description)`：
 
@@ -327,7 +327,7 @@ def assert_deepseek_strict_object(schema):
 }
 ```
 
-- [ ] **Step 6: 运行 contracts 测试**
+- [x] **Step 6: 运行 contracts 测试**
 
 Run:
 
@@ -338,7 +338,7 @@ uv run pytest tests/test_deepseek_contracts.py -v
 
 Expected: PASS。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add services/worker/clipwise_worker/highlight_models.py \
@@ -352,7 +352,7 @@ git commit -m "feat: add strict highlight data contracts"
 - Create: `services/worker/clipwise_worker/highlight_windows.py`
 - Create: `services/worker/tests/test_highlight_windows.py`
 
-- [ ] **Step 1: 写失败测试——窗口对齐 segment 且遵守时长**
+- [x] **Step 1: 写失败测试——窗口对齐 segment 且遵守时长**
 
 用每条 15 秒的 transcript fixture，断言：
 
@@ -373,7 +373,7 @@ assert all(45_000 <= w.end_ms - w.start_ms <= 150_000 for w in windows)
 
 增加空 transcript、尾部不足 45 秒、存在 segment 间隙和最后一个完整窗口测试。
 
-- [ ] **Step 2: 运行测试，确认函数不存在**
+- [x] **Step 2: 运行测试，确认函数不存在**
 
 Run:
 
@@ -384,7 +384,7 @@ uv run pytest tests/test_highlight_windows.py -v
 
 Expected: FAIL。
 
-- [ ] **Step 3: 实现窗口算法**
+- [x] **Step 3: 实现窗口算法**
 
 规则：
 
@@ -396,7 +396,7 @@ Expected: FAIL。
 - 下一个窗口选择首个 `start_ms >= current_start + 45_000` 的 segment。
 - ID 为 `window-{ordinal:04d}`。
 
-- [ ] **Step 4: 写失败测试——排序、60 分阈值和 80% 重叠**
+- [x] **Step 4: 写失败测试——排序、60 分阈值和 80% 重叠**
 
 覆盖：
 
@@ -416,14 +416,14 @@ overlap_ms / min(duration_a, duration_b)
 
 比例 `> 0.8` 才视为重复，恰好 `0.8` 保留。
 
-- [ ] **Step 5: 实现确定性筛选**
+- [x] **Step 5: 实现确定性筛选**
 
 实现 `overlap_ratio(a, b) -> float` 和
 `select_time_unique_windows(items, min_score=60, max_candidates=30) -> list[ScoredWindow]`。
 
 排序键为 `(-final_score, start_ms, window_id)`。
 
-- [ ] **Step 6: 写失败测试——边界映射和 quote 溯源**
+- [x] **Step 6: 写失败测试——边界映射和 quote 溯源**
 
 覆盖：
 
@@ -434,7 +434,7 @@ overlap_ms / min(duration_a, duration_b)
 - quote 仅忽略普通空白后可找到。
 - 改动标点或汉字时不可找到。
 
-- [ ] **Step 7: 实现边界和 quote 校验**
+- [x] **Step 7: 实现边界和 quote 校验**
 
 实现：
 
@@ -453,7 +453,7 @@ def quote_is_verbatim(quote: str, transcript_text: str) -> bool:
 `apply_boundary_decision(scored, decision, segments_by_id) -> FinalCandidateInput`，
 按测试规定验证 ID、顺序、原窗口范围和 45–150 秒时长。
 
-- [ ] **Step 8: 运行纯函数测试**
+- [x] **Step 8: 运行纯函数测试**
 
 Run:
 
@@ -464,7 +464,7 @@ uv run pytest tests/test_highlight_windows.py -v
 
 Expected: PASS。
 
-- [ ] **Step 9: 提交**
+- [x] **Step 9: 提交**
 
 ```bash
 git add services/worker/clipwise_worker/highlight_windows.py \
@@ -478,7 +478,7 @@ git commit -m "feat: add deterministic highlight window selection"
 - Create: `services/worker/clipwise_worker/deepseek.py`
 - Modify: `services/worker/tests/test_deepseek_client.py`
 
-- [ ] **Step 1: 写失败测试——强制指定 strict tool**
+- [x] **Step 1: 写失败测试——强制指定 strict tool**
 
 注入一个记录参数的假 `chat.completions.create`，断言：
 
@@ -493,7 +493,7 @@ assert kwargs["tool_choice"] == {
 assert kwargs["temperature"] == 0
 ```
 
-- [ ] **Step 2: 运行测试，确认客户端不存在**
+- [x] **Step 2: 运行测试，确认客户端不存在**
 
 Run:
 
@@ -504,7 +504,7 @@ uv run pytest tests/test_deepseek_client.py -v
 
 Expected: FAIL。
 
-- [ ] **Step 3: 实现请求骨架和依赖注入**
+- [x] **Step 3: 实现请求骨架和依赖注入**
 
 ```python
 class DeepSeekError(RuntimeError):
@@ -535,7 +535,7 @@ OpenAI(api_key=api_key, base_url=base_url)
 
 内部 `_call_strict_tool()` 负责构造单个指定 tool 请求。
 
-- [ ] **Step 4: 写失败测试——拒绝错误 completion 形态**
+- [x] **Step 4: 写失败测试——拒绝错误 completion 形态**
 
 分别测试：
 
@@ -548,7 +548,7 @@ OpenAI(api_key=api_key, base_url=base_url)
 
 均应抛 `DeepSeekError(code="deepseek_invalid_response", retryable=True)`。
 
-- [ ] **Step 5: 实现 tool call 解析**
+- [x] **Step 5: 实现 tool call 解析**
 
 成功条件：
 
@@ -561,7 +561,7 @@ tool.function.name == expected_name
 response_model.model_validate_json(tool.function.arguments)
 ```
 
-- [ ] **Step 6: 写失败测试——最多三次且只重试可恢复错误**
+- [x] **Step 6: 写失败测试——最多三次且只重试可恢复错误**
 
 覆盖：
 
@@ -570,7 +570,7 @@ response_model.model_validate_json(tool.function.arguments)
 - schema 400 立即失败，不重试。
 - invalid response 连续三次，最终抛 `deepseek_invalid_response`。
 
-- [ ] **Step 7: 实现重试分类**
+- [x] **Step 7: 实现重试分类**
 
 使用 OpenAI SDK 异常类型和 HTTP status：
 
@@ -581,7 +581,7 @@ response_model.model_validate_json(tool.function.arguments)
 
 最多三次调用，调用间隔 1 秒、2 秒。
 
-- [ ] **Step 8: 实现三个公开方法与提示词**
+- [x] **Step 8: 实现三个公开方法与提示词**
 
 ```python
 score_windows(windows) -> list[WindowScore]
@@ -597,7 +597,7 @@ generate_candidate_details(candidates) -> list[CandidateDetail]
 - 返回前验证输入 ID 集合与输出 ID 集合完全一致。
 - score 批次成功后不因后续批次失败而重复发送。
 
-- [ ] **Step 9: 运行客户端和契约测试**
+- [x] **Step 9: 运行客户端和契约测试**
 
 Run:
 
@@ -608,7 +608,7 @@ uv run pytest tests/test_deepseek_contracts.py tests/test_deepseek_client.py -v
 
 Expected: PASS。
 
-- [ ] **Step 10: 提交**
+- [x] **Step 10: 提交**
 
 ```bash
 git add services/worker/clipwise_worker/deepseek.py \
@@ -623,7 +623,7 @@ git commit -m "feat: add strict deepseek client"
 - Create: `services/worker/tests/test_highlight_pipeline.py`
 - Modify: `services/worker/tests/conftest.py`
 
-- [ ] **Step 1: 写失败测试——完整三阶段顺序**
+- [x] **Step 1: 写失败测试——完整三阶段顺序**
 
 创建 `RecordingDeepSeekClient`，返回由 transcript 推导的受控结果，断言调用顺序：
 
@@ -640,7 +640,7 @@ assert result[0].selected_title == result[0].title_options[0]
 assert result[0].subtitles[0].text == transcript[0].text
 ```
 
-- [ ] **Step 2: 运行测试，确认服务不存在**
+- [x] **Step 2: 运行测试，确认服务不存在**
 
 Run:
 
@@ -651,7 +651,7 @@ uv run pytest tests/test_highlight_pipeline.py -v
 
 Expected: FAIL。
 
-- [ ] **Step 3: 实现 transcript repository 读取**
+- [x] **Step 3: 实现 transcript repository 读取**
 
 ```python
 async def read_transcript(database, project_token) -> list[TranscriptSegment]:
@@ -661,7 +661,7 @@ async def read_transcript(database, project_token) -> list[TranscriptSegment]:
     ORDER BY index ASC, start_ms ASC
 ```
 
-- [ ] **Step 4: 实现 `HighlightPipeline.generate()`**
+- [x] **Step 4: 实现 `HighlightPipeline.generate()`**
 
 顺序：
 
@@ -677,7 +677,7 @@ async def read_transcript(database, project_token) -> list[TranscriptSegment]:
 10. 从最终范围内 transcript 复制字幕。
 11. 按分数排序并生成连续 rank。
 
-- [ ] **Step 5: 写失败测试——无候选绝不回退**
+- [x] **Step 5: 写失败测试——无候选绝不回退**
 
 覆盖：
 
@@ -688,7 +688,7 @@ async def read_transcript(database, project_token) -> list[TranscriptSegment]:
 
 均断言抛稳定错误，结果不是空成功，也不出现 fixture 标题。
 
-- [ ] **Step 6: 实现稳定错误映射**
+- [x] **Step 6: 实现稳定错误映射**
 
 ```python
 class HighlightGenerationError(RuntimeError):
@@ -700,7 +700,7 @@ class HighlightGenerationError(RuntimeError):
 
 映射设计文档中的错误码。
 
-- [ ] **Step 7: 运行业务编排测试**
+- [x] **Step 7: 运行业务编排测试**
 
 Run:
 
@@ -711,7 +711,7 @@ uv run pytest tests/test_highlight_pipeline.py -v
 
 Expected: PASS。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add services/worker/clipwise_worker/highlight_pipeline.py \
@@ -726,7 +726,7 @@ git commit -m "feat: build real highlight generation pipeline"
 - Create: `services/worker/clipwise_worker/candidates.py`
 - Create: `services/worker/tests/test_candidate_persistence.py`
 
-- [ ] **Step 1: 写失败测试——真实候选和字幕原子写入**
+- [x] **Step 1: 写失败测试——真实候选和字幕原子写入**
 
 准备项目、transcript 和两个最终候选，调用：
 
@@ -741,7 +741,7 @@ await replace_project_candidates(db, project_token, candidates)
 - rank 为 1、2。
 - project 为 ready。
 
-- [ ] **Step 2: 运行测试，确认函数不存在**
+- [x] **Step 2: 运行测试，确认函数不存在**
 
 Run:
 
@@ -752,7 +752,7 @@ uv run pytest tests/test_candidate_persistence.py -v
 
 Expected: FAIL。
 
-- [ ] **Step 3: 实现单事务替换**
+- [x] **Step 3: 实现单事务替换**
 
 在一个 `conn.transaction()` 中先删除该项目旧候选，再使用固定 SQL 列表逐条插入设计文档定义的全部候选和字幕字段，最后执行：
 
@@ -764,7 +764,7 @@ UPDATE projects SET status='ready', updated_at=NOW() WHERE token=$1;
 
 候选 ID 为 `f"{project_token}-{uuid.uuid4()}"`，字幕 ID 使用 UUID。
 
-- [ ] **Step 4: 写失败测试——中途写入异常回滚**
+- [x] **Step 4: 写失败测试——中途写入异常回滚**
 
 通过注入或 monkeypatch 让第二条字幕插入失败，断言：
 
@@ -772,14 +772,14 @@ UPDATE projects SET status='ready', updated_at=NOW() WHERE token=$1;
 - 没有半套新候选。
 - project 状态未被错误改为 ready。
 
-- [ ] **Step 5: 实现项目失败/恢复函数**
+- [x] **Step 5: 实现项目失败/恢复函数**
 
 ```python
 async def mark_initial_generation_failed(db, project_token):  # status=failed
 async def restore_after_regeneration_failure(db, project_token):  # status=ready
 ```
 
-- [ ] **Step 6: 运行持久化测试**
+- [x] **Step 6: 运行持久化测试**
 
 Run:
 
@@ -790,7 +790,7 @@ uv run pytest tests/test_candidate_persistence.py -v
 
 Expected: PASS。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add services/worker/clipwise_worker/candidates.py \
@@ -807,7 +807,7 @@ git commit -m "feat: persist real candidates atomically"
 - Create: `services/worker/tests/test_pipeline_candidates.py`
 - Delete: `services/worker/tests/test_mock_ai.py`
 
-- [ ] **Step 1: 写失败测试——候选任务调用真实服务**
+- [x] **Step 1: 写失败测试——候选任务调用真实服务**
 
 向 `Pipeline` 注入 `candidate_service_factory`，测试：
 
@@ -820,7 +820,7 @@ assert job.status == "succeeded"
 assert project.status == "ready"
 ```
 
-- [ ] **Step 2: 写失败测试——初次失败与重新生成失败状态不同**
+- [x] **Step 2: 写失败测试——初次失败与重新生成失败状态不同**
 
 初次生成：
 
@@ -838,7 +838,7 @@ assert project.status == "ready"
 assert old_candidates_unchanged
 ```
 
-- [ ] **Step 3: 运行测试，确认当前 mock 路径不满足**
+- [x] **Step 3: 运行测试，确认当前 mock 路径不满足**
 
 Run:
 
@@ -849,7 +849,7 @@ uv run pytest tests/test_pipeline_candidates.py -v
 
 Expected: FAIL。
 
-- [ ] **Step 4: 重构 Pipeline 候选分支**
+- [x] **Step 4: 重构 Pipeline 候选分支**
 
 `Pipeline.__init__` 增加可选：
 
@@ -871,7 +871,7 @@ candidate_service_factory: Callable[[WorkerConfig], HighlightPipeline] | None
 5. 捕获 `HighlightGenerationError`，按任务类型更新 project 状态并 mark failed。
 6. 捕获数据库错误，使用 `candidate_persist_failed`。
 
-- [ ] **Step 5: 删除 mock 文件和测试**
+- [x] **Step 5: 删除 mock 文件和测试**
 
 删除：
 
@@ -888,7 +888,7 @@ rg -n "generate_mock_candidates|mock_ai|MOCK_CANDIDATES" services/worker/clipwis
 
 Expected: 无匹配。
 
-- [ ] **Step 6: 运行 Worker 全量测试**
+- [x] **Step 6: 运行 Worker 全量测试**
 
 Run:
 
@@ -901,7 +901,7 @@ env -u ALL_PROXY -u all_proxy -u HTTP_PROXY -u http_proxy \
 
 Expected: 全部 PASS。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add services/worker/clipwise_worker/pipeline.py \
@@ -920,7 +920,7 @@ git commit -m "feat: replace mock candidates with deepseek pipeline"
 - Modify: `apps/web/tests/integration/real-upload-asr.test.ts`
 - Create: `apps/web/tests/integration/real-deepseek-candidates.test.ts`
 
-- [ ] **Step 1: 写失败断言——候选必须可溯源且数量为 1–10**
+- [x] **Step 1: 写失败断言——候选必须可溯源且数量为 1–10**
 
 公用断言：
 
@@ -933,7 +933,7 @@ expect(clips.every((clip) => clip.subtitles.length > 0)).toBe(true);
 
 数据库查询 transcript 后验证每条 subtitle 的时间范围和文本属于该项目 transcript。
 
-- [ ] **Step 2: 运行目标集成测试，确认旧固定七条断言或环境假设失败**
+- [x] **Step 2: 运行目标集成测试，确认旧固定七条断言或环境假设失败**
 
 Run:
 
@@ -947,7 +947,7 @@ pnpm --filter @clipwise/web exec vitest run \
 
 Expected: 至少因固定七候选或未配置测试 DeepSeek 服务而 FAIL。
 
-- [ ] **Step 3: 将普通集成测试与真实外部服务分层**
+- [x] **Step 3: 将普通集成测试与真实外部服务分层**
 
 - `create-to-ready` 和 `sse-flow` 只验证 Web/API/SSE，不上传伪音频触发真实 AI；直接创建受控 job 并由测试数据库更新进度。
 - `real-upload-asr` 只验证真实 ASR 和 transcript，不再要求后续 DeepSeek 成功。
@@ -959,7 +959,7 @@ describe.skipIf(!process.env.RUN_REAL_DEEPSEEK)
 
 并等待 `generate_candidates` job 完成。
 
-- [ ] **Step 4: 运行非真实集成和 Web 单测**
+- [x] **Step 4: 运行非真实集成和 Web 单测**
 
 Run:
 
@@ -972,7 +972,7 @@ pnpm --filter @clipwise/web exec vitest run \
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add apps/web/tests/integration/create-to-ready.test.ts \
@@ -991,7 +991,7 @@ git commit -m "test: remove fixed mock candidate assumptions"
 - Modify: `progress.md`
 - Create: `docs/phase-5-verification.md`
 
-- [ ] **Step 1: 更新 Worker README**
+- [x] **Step 1: 更新 Worker README**
 
 明确：
 
@@ -1001,7 +1001,7 @@ git commit -m "test: remove fixed mock candidate assumptions"
 - 启动命令。
 - 不存在生产 mock 回退。
 
-- [ ] **Step 2: 执行生产路径审计**
+- [x] **Step 2: 执行生产路径审计**
 
 Run:
 
@@ -1020,7 +1020,7 @@ apps/web/db/seed.ts
 apps/web/tests/
 ```
 
-- [ ] **Step 3: 更新规划文件**
+- [x] **Step 3: 更新规划文件**
 
 记录：
 
@@ -1029,7 +1029,7 @@ apps/web/tests/
 - 自动测试结果。
 - 仍未完成的 Phase 4.1 长视频完整时长和 Phase 6 导出。
 
-- [ ] **Step 4: 创建 Phase 5 验收模板**
+- [x] **Step 4: 创建 Phase 5 验收模板**
 
 `docs/phase-5-verification.md` 包含：
 
@@ -1224,3 +1224,11 @@ git commit -m "test: verify real deepseek candidate generation"
 - 不将真实 key 写入仓库、命令输出或文档。
 - 不通过降低校验标准让模型错误响应“勉强可用”。
 - 不把 fixture、测试客户端或固定候选导入生产 Worker。
+
+## 五、执行日志
+
+- 2026-06-23：隔离 worktree 首次运行 Worker 基线测试时，`uv sync --frozen`
+  未安装 optional dev 依赖，导致 `pytest` 不存在。改用
+  `uv sync --frozen --extra dev` 后继续，不重复失败命令。
+- 2026-06-23：Task 3 测试 19 条通过后，在 `services/worker` 目录使用了
+  仓库根路径执行 `git add`，导致 pathspec 不匹配。改为回到仓库根目录提交。

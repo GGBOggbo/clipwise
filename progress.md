@@ -46,14 +46,22 @@
   - `c256eae`
   - `f701319`
 
-### 当前阶段：后端任务基础设施
+### 当前阶段：DeepSeek 高光发现
 
-- **状态：** in_progress
+- **状态：** implementation_complete_e2e_pending
+- 已完成：
+  - DeepSeek Worker 配置、依赖和 env 示例。
+  - strict tool schema、Pydantic 数据契约和契约测试。
+  - transcript 滑动窗口、60 分阈值、80% 时间重叠去重和 quote 溯源校验。
+  - DeepSeek strict tool 客户端、三次重试和错误分类。
+  - 高光业务编排、真实字幕复制和候选详情校验。
+  - 候选/字幕单事务替换；初次失败和重新生成失败状态分流。
+  - Pipeline 删除生产 mock 候选路径，改为真实 DeepSeek 管线。
+  - Web 集成测试移除固定 7 候选和假音频假设。
 - 下一步：
-  - 明确独立后端框架和数据库方案。
-  - 编写后端任务系统设计。
-  - 实现数据库 schema、创建任务 API 和串行 worker。
-  - 为 SSE、Groq 和 DeepSeek 建立可测试的任务阶段接口。
+  - 完成文档审计和全量自动验证。
+  - 等用户提供 DeepSeek key 后做真实端到端验收。
+  - Phase 4.1 长视频完整分片与 Phase 6 导出单独规划。
 
 ### 临时复查：项目页视觉与交互
 
@@ -82,12 +90,12 @@
 
 | 测试 | 结果 | 状态 |
 |------|------|------|
-| `pnpm test` | 15 个测试文件、36 个测试通过 | PASS |
-| `pnpm test:e2e` | 3 个 Chromium E2E 通过 | PASS |
-| `pnpm lint` | 无错误 | PASS |
-| `pnpm build` | Next.js 生产构建成功 | PASS |
-| `git diff --check` | 无空白错误 | PASS |
-| 浏览器上传页 | 标题单行、3 个 SVG 图标、拖拽入口正确 | PASS |
+| Worker Phase 5 局部/全量测试 | 实现过程中已跑到 60 条通过 | PASS |
+| Web 非真实集成 smoke | `create-to-ready`、`sse-flow` 通过 | PASS |
+| 最终 Worker 全量测试 | 待重跑 | PENDING |
+| Web 单测 | 待重跑 | PENDING |
+| E2E | 待重跑 | PENDING |
+| lint / build / diff / migration drift | 待重跑 | PENDING |
 
 ## 错误日志
 
@@ -98,21 +106,25 @@
 | 2026-06-22 | 上传页主标题换行 | 1 | 恢复 nowrap 并增加 E2E |
 | 2026-06-22 | 文件选择入口重复 | 1 | 合并拖拽、点击和键盘入口 |
 | 2026-06-22 | 本机没有 FFmpeg CLI | 1 | 下载 2.7MB 测试 MP4 到 outputs |
+| 2026-06-23 | `uv sync --frozen` 没有安装 pytest | 1 | 改用 `uv sync --frozen --extra dev` |
+| 2026-06-23 | 本机代理环境变量影响 Python SDK/httpx | 1 | Worker 测试命令显式 unset proxy |
+| 2026-06-23 | 旧集成测试依赖假音频和固定 7 候选 | 1 | 拆成 Web/API/SSE smoke、真实 ASR 和可选真实 DeepSeek E2E |
 
 ## 工作区状态
 
-- 分支：`feature/phase1-frontend`
-- 最新代码提交：`f701319`
+- 分支：`codex/phase5-deepseek`
+- worktree：`.worktrees/phase5-deepseek`
+- 最新代码提交：`c8f2326 test: remove fixed mock candidate assumptions`
 - 未跟踪文件：`outputs/clipwise-test-video.mp4`
 - 开发服务器：`http://localhost:3000`
-- 当前页面：上传页 `/`
+- 当前页面：未固定；Phase 5 主要在 Worker 和集成测试层完成。
 
 ## 五问重启检查
 
 | 问题 | 答案 |
 |------|------|
-| 我在哪里？ | `task_plan.md` 阶段 2：后端任务基础设施 |
-| 我要去哪里？ | 任务 API → 串行 worker → SSE → Groq ASR → DeepSeek → 真实导出 |
+| 我在哪里？ | `task_plan.md` 阶段 5：DeepSeek 高光发现收尾 |
+| 我要去哪里？ | 自动验证 → 真实 DeepSeek E2E → Phase 4.1 长视频完整分片 → Phase 6 真实导出 |
 | 目标是什么？ | 完成长直播自动发现高光、编辑和本地导出的 Clipwise MVP |
 | 我学到了什么？ | 见 `findings.md` |
 | 我做了什么？ | 见本日志及 Git 提交历史 |
