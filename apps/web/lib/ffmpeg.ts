@@ -168,3 +168,45 @@ export async function sliceVideoClip(
   await ffmpeg.deleteFile(inputName);
   return new Blob([bytes.buffer as ArrayBuffer], { type: "video/mp4" });
 }
+
+/**
+ * 用 HTML5 <video> 元素探测视频真实时长（毫秒）。
+ *
+ * 创建临时 video 元素，等 loadedmetadata 读 duration。
+ * 某些格式（部分 webm / 无 moov 原子的 mp4）初始 duration 为 Infinity，
+ * 此时用 seek 探测：把 currentTime 设到极大值，浏览器会跳到真实尾部，
+ * timeupdate 事件里读到的 currentTime 即近似时长。
+ *
+ * 零依赖、不解码全片，只读 metadata（约 0.5-2 秒）。
+ */
+export async function probeVideoDurationMs(file: File): Promise<number> {
+  const video = document.createElement("video");
+  video.preload = "metadata";
+  const url = URL.createObjectURL(file);
+  video.src = url;
+
+  try {
+    const durationSec = await new Promise<number>((resolve) => {
+      video.addEventListener(
+        "loadedmetadata",
+        () => {
+          if (Number.isFinite(video.duration)) {
+            resolve(video.duration);
+            return;
+          }
+          // Infinity fallback：seek 到尾部探测真实时长
+          const onTimeUpdate = () => {
+            resolve(video.currentTime);
+            video.removeEventListener("timeupdate", onTimeUpdate);
+          };
+          video.addEventListener("timeupdate", onTimeUpdate);
+          video.currentTime = 1e101;
+        },
+        { once: true },
+      );
+    });
+    return Math.round(durationSec * 1000);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
