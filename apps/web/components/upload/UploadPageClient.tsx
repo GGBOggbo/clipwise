@@ -1,9 +1,10 @@
 "use client";
 
 import type { DragEvent, KeyboardEvent } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { validateVideoFile } from "@/lib/file-validation";
+import { useAudioExtraction } from "@/features/upload/use-audio-extraction";
 import styles from "./UploadPage.module.css";
 
 type UploadState = "empty" | "selected" | "creating" | "error";
@@ -14,11 +15,30 @@ function formatFileSize(bytes: number) {
 
 export function UploadPageClient() {
   const router = useRouter();
+  const extraction = useAudioExtraction();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [state, setState] = useState<UploadState>("empty");
   const [error, setError] = useState("");
   const [isDragging, setIsDragging] = useState(false);
+
+  // 提取完成后自动跳任务页
+  useEffect(() => {
+    if (
+      extraction.phase === "done" &&
+      extraction.projectToken &&
+      extraction.taskId
+    ) {
+      router.push(
+        `/project/${extraction.projectToken}/tasks/${extraction.taskId}`,
+      );
+    }
+  }, [
+    extraction.phase,
+    extraction.projectToken,
+    extraction.taskId,
+    router,
+  ]);
 
   function chooseFile(nextFile?: File) {
     if (!nextFile) return;
@@ -36,12 +56,23 @@ export function UploadPageClient() {
     setError("");
   }
 
-  function startAnalysis() {
+  async function startAnalysis() {
     if (!file) return;
-    sessionStorage.setItem("clipwise-demo-file-name", file.name);
     setState("creating");
-    router.push("/project/demo-project");
+    await extraction.start(file);
+    // 错误时 state 由 extraction.phase=error 体现，下面渲染会处理
   }
+
+  const isProcessing =
+    extraction.phase !== "idle" && extraction.phase !== "done";
+
+  const phaseLabel: Record<string, string> = {
+    "creating-project": "正在创建项目…",
+    "loading-ffmpeg": "正在加载处理引擎…（首次约 25MB）",
+    extracting: `正在提取音频…${Math.round(extraction.progress * 100)}%`,
+    uploading: `正在上传音频…${Math.round(extraction.progress * 100)}%`,
+    error: "处理失败",
+  };
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -133,7 +164,13 @@ export function UploadPageClient() {
               </p>
             )}
 
-            {file && (
+            {extraction.phase === "error" && extraction.error && (
+              <p className={styles.error} role="alert">
+                {extraction.error}
+              </p>
+            )}
+
+            {file && !isProcessing && extraction.phase !== "error" && (
               <button
                 className={styles.startButton}
                 type="button"
@@ -142,6 +179,24 @@ export function UploadPageClient() {
               >
                 {state === "creating" ? "正在创建项目…" : "开始分析"}
               </button>
+            )}
+
+            {extraction.phase === "error" && (
+              <button
+                className={styles.startButton}
+                type="button"
+                onClick={() => {
+                  if (file) void startAnalysis();
+                }}
+              >
+                重试
+              </button>
+            )}
+
+            {isProcessing && (
+              <div className={styles.startButton}>
+                {phaseLabel[extraction.phase] ?? "处理中…"}
+              </div>
             )}
           </div>
 
