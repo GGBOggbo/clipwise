@@ -4,12 +4,19 @@ import asyncio
 import logging
 import os
 import uuid
+from collections.abc import Callable
 from typing import Any
 from .db import Database
 from .tasks import TaskRepo
-from .mock_ai import generate_mock_candidates
 from .asr import GroqTranscriber, merge_segments_with_offset, save_transcript
 from .config import WorkerConfig
+from .candidates import (
+    mark_initial_generation_failed,
+    replace_project_candidates,
+    restore_after_regeneration_failure,
+)
+from .deepseek import DeepSeekClient
+from .highlight_pipeline import HighlightGenerationError, HighlightPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -76,12 +83,34 @@ class Pipeline:
         config: WorkerConfig,
         poll_interval: float = 1.0,
         max_iterations: int | None = None,
+        candidate_service_factory: Callable[[WorkerConfig], Any] | None = None,
     ) -> None:
         self._db = database
         self._repo = repo
         self._config = config
         self._poll_interval = poll_interval
         self._max_iterations = max_iterations  # None = 无限循环；测试用 0 或正数
+        self._candidate_service_factory = (
+            candidate_service_factory or self._build_candidate_service
+        )
+
+    def _build_candidate_service(self, config: WorkerConfig) -> HighlightPipeline:
+        if not config.deepseek_api_key:
+            raise HighlightGenerationError(
+                "missing_deepseek_key",
+                "DeepSeek API Key 未配置",
+            )
+        if config.deepseek_output_mode != "strict_tool":
+            raise HighlightGenerationError(
+                "deepseek_invalid_response",
+                "当前只支持 DeepSeek strict tool 输出模式",
+            )
+        client = DeepSeekClient(
+            api_key=config.deepseek_api_key,
+            base_url=config.deepseek_api_base,
+            model=config.deepseek_model,
+        )
+        return HighlightPipeline(self._db, client)
 
     async def recover_interrupted(self) -> None:
         async with self._db.pool.acquire() as conn:
@@ -150,6 +179,64 @@ class Pipeline:
 
         await self._repo.mark_succeeded(task_id, "转写完成")
 
+    async def _process_candidates(self, task: dict[str, Any]) -> None:
+        task_id = task["task_id"]
+        project_token = task["project_token"]
+        job_type = task["type"]
+
+        async def report(progress: int, message: str) -> None:
+            await self._repo.update_progress(task_id, progress, message)
+
+        try:
+            service = self._candidate_service_factory(self._config)
+            candidates = await service.generate(
+                project_token,
+                progress_callback=report,
+            )
+            try:
+                await replace_project_candidates(
+                    self._db,
+                    project_token,
+                    candidates,
+                )
+            except Exception:
+                logger.exception("候选持久化失败: %s", task_id)
+                if job_type == "regenerate_candidates":
+                    await restore_after_regeneration_failure(
+                        self._db,
+                        project_token,
+                    )
+                else:
+                    await mark_initial_generation_failed(
+                        self._db,
+                        project_token,
+                    )
+                await self._repo.mark_failed(
+                    task_id,
+                    "candidate_persist_failed",
+                    "候选保存失败，请重试",
+                )
+                return
+
+            await self._repo.mark_succeeded(task_id, "候选生成完成")
+            logger.info("任务 %s 完成", task_id)
+        except HighlightGenerationError as exc:
+            if job_type == "regenerate_candidates":
+                await restore_after_regeneration_failure(
+                    self._db,
+                    project_token,
+                )
+            else:
+                await mark_initial_generation_failed(
+                    self._db,
+                    project_token,
+                )
+            await self._repo.mark_failed(
+                task_id,
+                exc.code,
+                exc.user_message,
+            )
+
     async def process_task(self, task: dict[str, Any]) -> None:
         task_id = task["task_id"]
         project_token = task["project_token"]
@@ -161,13 +248,14 @@ class Pipeline:
                 await self._process_transcribe(task)
                 return
 
+            if job_type in ("generate_candidates", "regenerate_candidates"):
+                await self._process_candidates(task)
+                return
+
             messages = STAGE_MESSAGES.get(job_type, [(50, "处理中")])
             for progress, message in messages:
                 await self._repo.update_progress(task_id, progress, message)
                 await asyncio.sleep(0.05)  # 模拟处理耗时
-
-            if job_type in ("generate_candidates", "regenerate_candidates"):
-                await generate_mock_candidates(self._db, project_token)
 
             await self._repo.mark_succeeded(task_id, "候选生成完成")
             logger.info("任务 %s 完成", task_id)
