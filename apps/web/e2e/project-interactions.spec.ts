@@ -73,18 +73,32 @@ test("桌面浏览器 720px 高度下编辑区使用确定的网格布局", asyn
   await page.goto("/project/demo-project");
 
   await selectFirstCandidate(page);
+  await page.getByLabel("重新选择本地原视频").setInputFiles({
+    name: "直播回放.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("demo-video"),
+  });
 
   const layout = await page.evaluate(() => {
     const tabs = document.querySelector('nav[aria-label="片段编辑"]');
     const content = tabs?.nextElementSibling;
     const player = document.querySelector('[data-testid="local-video-player"]');
+    const video = document.querySelector('[data-testid="local-video"]');
     const leftPanel = player?.parentElement;
+
+    if (video instanceof HTMLElement) {
+      video.style.aspectRatio = "16 / 9";
+    }
+
+    const playerRect = player?.getBoundingClientRect();
+    const videoRect = video?.getBoundingClientRect();
 
     return {
       layoutMode: leftPanel ? getComputedStyle(leftPanel).display : "",
       contentHeight: content?.getBoundingClientRect().height ?? 0,
       contentTop: content?.getBoundingClientRect().top ?? 0,
-      playerHeight: player?.getBoundingClientRect().height ?? 0,
+      playerHeight: playerRect?.height ?? 0,
+      videoHeight: videoRect?.height ?? 0,
     };
   });
 
@@ -92,4 +106,5 @@ test("桌面浏览器 720px 高度下编辑区使用确定的网格布局", asyn
   expect(layout.contentHeight).toBeGreaterThan(230);
   expect(layout.contentTop).toBeLessThan(490);
   expect(layout.playerHeight).toBeGreaterThanOrEqual(280);
+  expect(layout.videoHeight).toBeLessThanOrEqual(layout.playerHeight);
 });
