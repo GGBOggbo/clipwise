@@ -94,7 +94,16 @@ def valid_score_payload():
         "items": [
             {
                 "windowId": "window-0001",
+                "recommendation": "recommended",
                 "finalScore": 88,
+                "dimensions": {
+                    "informationDensity": 4,
+                    "hookStrength": 3,
+                    "standaloneClarity": 4,
+                    "editability": 4,
+                },
+                "rejectionReason": "none",
+                "topicLabel": "AI 项目",
                 "type": "观点",
                 "recommendationReason": "观点完整，可独立传播",
             }
@@ -114,6 +123,8 @@ def test_score_windows_forces_named_strict_tool_and_non_thinking_mode():
     result = client.score_windows(candidate_windows())
 
     assert result[0].window_id == "window-0001"
+    assert result[0].recommendation == "recommended"
+    assert result[0].dimensions.information_density == 4
     kwargs = sdk.completions.calls[0]
     assert kwargs["model"] == "deepseek-v4-flash"
     assert kwargs["extra_body"] == {"thinking": {"type": "disabled"}}
@@ -123,6 +134,34 @@ def test_score_windows_forces_named_strict_tool_and_non_thinking_mode():
         "function": {"name": "submit_window_scores"},
     }
     assert kwargs["temperature"] == 0
+
+
+def test_score_prompt_uses_editor_recall_role():
+    sdk = FakeSdk([completion(valid_score_payload())])
+    client = DeepSeekClient(
+        api_key="key",
+        base_url="https://api.deepseek.com/beta",
+        model="deepseek-v4-flash",
+        sdk_client=sdk,
+        sleeper=lambda _: None,
+    )
+
+    client.score_windows(
+        [
+            CandidateWindow(
+                window_id="window-0001",
+                start_ms=0,
+                end_ms=120_000,
+                segment_ids=["s1"],
+                text="有效内容",
+            )
+        ]
+    )
+
+    system_prompt = sdk.completions.calls[0]["messages"][0]["content"]
+    assert "剪辑师" in system_prompt
+    assert "不是判断最终爆款" in system_prompt
+    assert "backup" in system_prompt
 
 
 @pytest.mark.parametrize(

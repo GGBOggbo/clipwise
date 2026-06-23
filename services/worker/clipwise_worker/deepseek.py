@@ -165,13 +165,17 @@ class DeepSeekClient:
             for attempt in range(3):
                 response = self._call_strict_tool(
                     function_name="submit_window_scores",
-                    description="提交每个知识直播候选窗口的评分结果",
+                    description="提交每个知识直播候选窗口的编辑师召回评分结果",
                     response_model=ScoreBatchResponse,
                     system_prompt=(
-                        "你是知识类直播高光评审。逐个评估输入窗口，"
-                        "不得遗漏、增加或改写 windowId。按观点完整性、"
-                        "方法价值、案例价值、原文表达、上下文独立性和传播价值"
-                        "给出 0 到 100 整数分、候选类型和简洁推荐理由。"
+                        "你是服务剪辑师的直播回放素材筛选助手。你的任务不是判断最终爆款，"
+                        "而是判断这段是否值得剪辑师点开看一眼，并且是否有机会剪成一条"
+                        "1到3分钟的独立短视频。逐个评估输入窗口，不得遗漏、增加或改写"
+                        "windowId。输出 recommendation: strong/recommended/backup/reject，"
+                        "finalScore 仅用于同档排序。按 informationDensity、hookStrength、"
+                        "standaloneClarity、editability 四个1到5分维度评分。纯寒暄、过渡、"
+                        "重复、行政信息、ASR噪声必须 reject；有潜力但需要补上下文的内容"
+                        "可标为 backup。topicLabel 要短、稳定、适合主题分散。"
                     ),
                     payload={
                         "windows": [
@@ -211,15 +215,21 @@ class DeepSeekClient:
             system_prompt=(
                 "识别表达同一知识单元的重复候选，并保留分数不低的候选。"
                 "每个输入 windowId 必须恰好返回一次。边界只能引用该候选"
-                "提供的 segmentIds，不得创造时间或 ID。"
+                "提供的 segmentIds，不得创造时间或 ID。对每个保留候选给出"
+                "boundaryReason（为什么这样切边界）和 needsSetup（是否需要"
+                "剪辑师补开场或上下文）。"
             ),
             payload={
                 "candidates": [
                     {
                         "windowId": item.window.window_id,
+                        "recommendation": item.recommendation,
                         "finalScore": item.final_score,
                         "type": item.type,
+                        "rejectionReason": item.rejection_reason,
+                        "topicLabel": item.topic_label,
                         "recommendationReason": item.recommendation_reason,
+                        "needsSetup": item.needs_setup,
                         "segmentIds": item.window.segment_ids,
                         "text": item.window.text,
                     }
@@ -243,12 +253,13 @@ class DeepSeekClient:
             expected_ids = [candidate.window_id for candidate in batch]
             response = self._call_strict_tool(
                 function_name="submit_candidate_details",
-                description="提交最终高光候选的标题、摘要、原文金句和风险提示",
+                description="提交最终高光候选的标题、摘要、原文金句、剪辑建议和风险提示",
                 response_model=DetailBatchResponse,
                 system_prompt=(
-                    "为每个最终知识高光生成三个忠于原文的中文标题、摘要、"
-                    "逐字原文金句和风险提示。quote 必须是输入 text 中连续"
-                    "出现的原文，不得润色、拼接或添加信息。不得遗漏或增加 ID。"
+                    "为每个最终剪辑素材生成三个忠于原文的中文标题、摘要、逐字原文金句、"
+                    "剪辑师 editingNote 和风险提示。quote 必须是输入 text 中连续出现的原文，"
+                    "不得润色、拼接或添加信息。editingNote 是给剪辑师的处理建议，"
+                    "不得伪造 transcript 中不存在的事实。不得遗漏或增加 ID。"
                 ),
                 payload={
                     "candidates": [
