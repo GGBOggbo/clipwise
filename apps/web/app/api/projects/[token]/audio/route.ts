@@ -27,35 +27,51 @@ export async function POST(
     return NextResponse.json({ error: "missing_audio_field" }, { status: 400 });
   }
 
+  const chunkIndex = Number(formData.get("chunkIndex") ?? "0");
+  const startOffsetMs = Number(formData.get("startOffsetMs") ?? "0");
+  const isLastChunk = formData.get("isLastChunk") === "true";
+
   const audioBuffer = Buffer.from(await audio.arrayBuffer());
-  const taskId = randomUUID();
+  const fileId = randomUUID();
   const storageDir = join(STORAGE_ROOT, token);
   await mkdir(storageDir, { recursive: true });
-  const storagePath = join(storageDir, `${taskId}.mp3`);
+  const storagePath = join(storageDir, `${fileId}.mp3`);
   await writeFile(storagePath, audioBuffer);
 
   await db.insert(schema.projectFiles).values({
-    id: randomUUID(),
+    id: fileId,
     projectToken: token,
     kind: "compressed_audio",
     storagePath,
     sizeBytes: audioBuffer.length,
+    chunkIndex,
+    startOffsetMs,
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
   });
 
-  await db.insert(schema.jobs).values({
-    taskId,
-    projectToken: token,
-    type: "generate_candidates",
-    status: "pending",
-    progress: 0,
-    message: "等待开始",
-  });
+  // 只在最后一块时创建 transcribe job（前端控制 isLastChunk）
+  if (isLastChunk) {
+    const taskId = randomUUID();
+    await db.insert(schema.jobs).values({
+      taskId,
+      projectToken: token,
+      type: "transcribe_audio",
+      status: "pending",
+      progress: 0,
+      message: "等待开始",
+    });
 
-  await db
-    .update(schema.projects)
-    .set({ status: "transcribing", updatedAt: new Date() })
-    .where(eq(schema.projects.token, token));
+    await db
+      .update(schema.projects)
+      .set({ status: "transcribing", updatedAt: new Date() })
+      .where(eq(schema.projects.token, token));
 
-  return NextResponse.json({ projectToken: token, taskId }, { status: 202 });
+    return NextResponse.json({ projectToken: token, taskId }, { status: 202 });
+  }
+
+  // 非最后一块：只确认接收，不创建 job
+  return NextResponse.json(
+    { projectToken: token, chunkIndex },
+    { status: 202 },
+  );
 }
