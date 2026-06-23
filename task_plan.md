@@ -78,14 +78,14 @@
 
 ### 阶段 6：本地切片与真实导出
 
-- [ ] 接入 FFmpeg.wasm
-- [ ] 浏览器按 startMs/endMs 切出 MP4
-- [ ] 生成 SRT 和 TXT
-- [ ] 实现当前片段导出
-- [ ] 实现 TOP 5 顺序处理与 ZIP 打包
+- [x] 接入 FFmpeg.wasm（复用 Phase 4 getFFmpeg 单例）
+- [x] 浏览器按 startMs/endMs 切出 MP4（`-c copy` 流拷贝）
+- [x] 生成 SRT 和 TXT
+- [x] 实现当前片段导出（MP4 + SRT + TXT 分别下载）
+- [x] 实现 TOP 5 顺序处理与 ZIP 打包（fflate）
 - [ ] Phase 6.1：支持约 30 个 1–3 分钟 MP4 批量导出到本地，服务剪辑师二次筛选
-- [ ] 验证完整原视频不上传服务器
-- **状态：** pending
+- [x] 验证完整原视频不上传服务器
+- **状态：** complete_with_known_gap（快速导出完成；带字幕成片导出未做）
 
 ### 阶段 7：并发能力与部署
 
