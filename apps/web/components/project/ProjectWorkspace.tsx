@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import type {
   ClipCandidate,
   ClipwiseProject,
@@ -21,8 +22,22 @@ type ProjectWorkspaceProps = {
 
 export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
   const workspace = useProjectWorkspace(initialProject);
+  const router = useRouter();
   const [localFile, setLocalFile] = useState<File | null>(null);
   const candidate = workspace.selectedCandidate;
+
+  const handleRegenerate = useCallback(async () => {
+    const resp = await fetch(
+      `${
+        process.env.NEXT_PUBLIC_API_BASE ?? ""
+      }/api/projects/${workspace.project.token}/regenerate`,
+      { method: "POST" },
+    );
+    if (resp.ok) {
+      const { taskId } = await resp.json();
+      router.push(`/project/${workspace.project.token}/tasks/${taskId}`);
+    }
+  }, [router, workspace.project.token]);
 
   const changePreviewStatus = useCallback(
     (status: PreviewStatus) => {
@@ -112,6 +127,8 @@ export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
           onSortChange={workspace.setSort}
           onToggleDetails={toggleDetails}
           onToggleShowAll={() => workspace.setShowAll(!workspace.showAll)}
+          onRegenerate={handleRegenerate}
+          canRegenerate={workspace.project.regenerationCount < 1}
         />
       </main>
     </div>

@@ -15,6 +15,8 @@ type CandidateListProps = {
   onPreview: (id: string) => void;
   onToggleDetails: (id: string) => void;
   onToggleShowAll: () => void;
+  onRegenerate: () => void;
+  canRegenerate: boolean;
 };
 
 export function CandidateList({
@@ -29,6 +31,8 @@ export function CandidateList({
   onPreview,
   onToggleDetails,
   onToggleShowAll,
+  onRegenerate,
+  canRegenerate,
 }: CandidateListProps) {
   return (
     <aside className={styles.rightPanel}>
@@ -76,7 +80,9 @@ export function CandidateList({
         <button type="button" onClick={onToggleShowAll}>
           {showAll ? "收起多余候选" : "查看更多候选"}
         </button>
-        <button type="button">重新生成候选</button>
+        <button type="button" onClick={onRegenerate} disabled={!canRegenerate}>
+          重新生成候选
+        </button>
       </div>
     </aside>
   );
