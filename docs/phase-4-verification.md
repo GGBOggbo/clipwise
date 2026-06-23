@@ -12,7 +12,7 @@
 | `pnpm lint`（ESLint） | ✅ 0 errors |
 | `pnpm build`（Next.js 生产构建） | ✅ 通过 |
 | COOP/COEP header 验证 | ✅ 3 个 header 生效 |
-| 真实 ASR 集成测试 | ⏳ 待用户拿到 Groq key + 视频后跑 |
+| 真实 ASR 集成测试 | ✅ 真实端到端跑通（见下"真实端到端验证"） |
 
 ## Phase 4 建成的东西
 
@@ -45,7 +45,27 @@
 - ✅ transcript_segments 表填充
 - ✅ ASR 成功后删音频文件（§15）
 - ✅ 双 job 衔接（transcribe → generate）
-- ⏳ 真实端到端（待 Groq key + 真实视频）
+- ✅ 真实端到端（见下）
+
+## 真实端到端验证（2026-06-23 14:08）
+
+用浏览器 ffmpeg.wasm 从用户视频（`飞书20260623-131141.mp4`，97MB）提取的 2.8MB mp3，经真实 API + 线上 Worker + 真实 Groq 跑通：
+
+| 环节 | 结果 |
+|---|---|
+| `POST /api/projects` 建项目 | ✅ token=DeLC0q4k… |
+| `POST /api/projects/{token}/audio`（单块 isLastChunk） | ✅ 202 + taskId |
+| `project_files.storage_path` 绝对路径（STORAGE_ROOT 修复） | ✅ `/Users/chk/…/storage/DeLC0q4k…/bb21…mp3` |
+| Worker 认领 transcribe_audio（dict 修复后） | ✅ running → succeeded |
+| 真实 Groq whisper-large-v3 转写 | ✅ 326 条 transcript_segments |
+| 转写内容样例 | ✅ "AI用开发如何从0干到40k / 今天这两个视频不看就是你的损失…" |
+| ASR 后删音频（§15 隐私） | ✅ 0 个音频文件残留 |
+| 双 job 衔接：自动建 generate_candidates | ✅ succeeded，7 个候选 |
+| 项目最终状态 | ✅ ready |
+
+过程中发现并修复的两个真实 bug：
+1. **STORAGE_ROOT 相对路径**：web 用 `./storage`（解析到 `apps/web/storage/`），Worker cwd 是 `services/worker/` 找不到文件。修复：audio route 用 `resolve()` 存绝对路径（commit `6383a01`）。
+2. **Groq SDK 返回 dict 不是对象**：`seg.id` 抛 `'dict' object has no attribute 'id'`。修复：asr.py 用 `isinstance(seg, dict)` 兼容（commit `97a1b38`）。mock 测试用 MagicMock 掩盖了这个问题。
 
 ## 失败恢复（design §16）
 
