@@ -5,7 +5,7 @@ import { zip } from "fflate";
 import type { ClipCandidate } from "@clipwise/shared";
 import { sliceVideoClip } from "@/lib/ffmpeg";
 import {
-  buildClipFileName,
+  buildClipStem,
   buildSrtContent,
   buildTxtContent,
 } from "@/lib/export-clip";
@@ -75,17 +75,13 @@ export function useExportClip() {
         const mp4 = await sliceVideoClip(file, candidate.startMs, candidate.endMs);
         const srt = buildSrtContent(candidate.subtitles, candidate.startMs);
         const txt = buildTxtContent(candidate);
-        const stem = buildClipFileName(
-          candidate.rank,
-          candidate.selectedTitle,
-          "",
-        ).slice(0, -1); // 去末尾点
+        const stem = buildClipStem(candidate.rank, candidate.selectedTitle);
 
         const entries: Record<string, Uint8Array> = {
-          [`${stem}mp4`]: await toBytes(mp4),
-          [`${stem}txt`]: await toBytes(txt),
+          [`${stem}.mp4`]: await toBytes(mp4),
+          [`${stem}.txt`]: await toBytes(txt),
         };
-        if (srt) entries[`${stem}srt`] = await toBytes(srt);
+        if (srt) entries[`${stem}.srt`] = await toBytes(srt);
 
         setProgress({ status: "packaging", current: 1, total: 1 });
         const zipBytes = await new Promise<Uint8Array>((resolve, reject) => {
@@ -96,7 +92,7 @@ export function useExportClip() {
         });
         downloadBlob(
           new Blob([zipBytes.buffer as ArrayBuffer], { type: "application/zip" }),
-          `${stem}zip`,
+          `${stem}.zip`,
         );
         setProgress({ status: "done", current: 1, total: 1 });
       } catch (err) {
@@ -122,14 +118,10 @@ export function useExportClip() {
           const mp4 = await sliceVideoClip(file, candidate.startMs, candidate.endMs);
           const srt = buildSrtContent(candidate.subtitles, candidate.startMs);
           const txt = buildTxtContent(candidate);
-          const stem = buildClipFileName(
-            candidate.rank,
-            candidate.selectedTitle,
-            "",
-          ).slice(0, -1); // 去末尾点
-          entries[`${stem}mp4`] = await toBytes(mp4);
-          if (srt) entries[`${stem}srt`] = await toBytes(srt);
-          entries[`${stem}txt`] = await toBytes(txt);
+          const stem = buildClipStem(candidate.rank, candidate.selectedTitle);
+          entries[`${stem}.mp4`] = await toBytes(mp4);
+          if (srt) entries[`${stem}.srt`] = await toBytes(srt);
+          entries[`${stem}.txt`] = await toBytes(txt);
           setProgress({ status: "slicing", current: i + 1, total });
         }
 

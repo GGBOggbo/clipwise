@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ClipCandidate, SubtitleLine } from "@clipwise/shared";
 import {
   buildClipFileName,
+  buildClipStem,
   buildSrtContent,
   buildTxtContent,
 } from "@/lib/export-clip";
@@ -83,5 +84,13 @@ describe("buildClipFileName", () => {
     const name = buildClipFileName(2, '路径/带:非法*字符?', "mp4");
     expect(name).toBe("02-路径带非法字符.mp4");
     expect(name).not.toMatch(/[/\\:*?"<>|]/);
+  });
+});
+
+describe("buildClipStem", () => {
+  it("返回无扩展名的文件名主干，不带末尾点", () => {
+    expect(buildClipStem(2, "AI 项目架构")).toBe("02-AI 项目架构");
+    // 关键：不能有末尾点，否则拼 .zip 会变成 ..zip 或被 Safari 补成 zip.zip
+    expect(buildClipStem(2, "标题")).not.toMatch(/\.$/);
   });
 });

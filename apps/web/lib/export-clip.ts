@@ -81,6 +81,14 @@ export function buildClipFileName(
   selectedTitle: string,
   ext: string,
 ): string {
+  return `${buildClipStem(rank, selectedTitle)}.${ext}`;
+}
+
+/**
+ * 生成片段文件名主干（无扩展名）：`{rank:02d}-{标题}`。
+ * 给需要自己拼扩展名的调用方用，避免 slice hack。
+ */
+export function buildClipStem(rank: number, selectedTitle: string): string {
   const safeTitle = sanitizeFileNameSegment(selectedTitle);
-  return `${String(rank).padStart(2, "0")}-${safeTitle}.${ext}`;
+  return `${String(rank).padStart(2, "0")}-${safeTitle}`;
 }
