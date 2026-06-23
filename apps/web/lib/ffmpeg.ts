@@ -110,7 +110,8 @@ export async function extractAudioChunks(
     ]);
 
     const data = await ffmpeg.readFile(outputName);
-    blobs.push(new Blob([data.buffer], { type: "audio/mpeg" }));
+    const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+    blobs.push(new Blob([bytes.buffer as ArrayBuffer], { type: "audio/mpeg" }));
     await ffmpeg.deleteFile(outputName);
 
     if (onProgress) {
