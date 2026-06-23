@@ -7,6 +7,29 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 ClipType = Literal["观点", "方法", "案例", "避坑", "对比", "总结", "金句"]
 
+# Phase 5.1 editor recall：模型推荐档位与拒绝/选择原因
+Recommendation = Literal["strong", "recommended", "backup", "reject"]
+RejectionReason = Literal[
+    "none",
+    "small_talk",
+    "transition",
+    "fragmented",
+    "duplicate",
+    "low_information",
+    "asr_noise",
+    "too_context_dependent",
+    "promotion_or_admin",
+]
+SelectionStatus = Literal[
+    "scored",
+    "below_recall_threshold",
+    "time_duplicate",
+    "semantic_duplicate",
+    "topic_diversity_skipped",
+    "selected",
+    "rejected",
+]
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(
@@ -32,9 +55,20 @@ class CandidateWindow(StrictModel):
     text: str
 
 
+class ScoreDimensions(StrictModel):
+    information_density: int = Field(alias="informationDensity", ge=1, le=5)
+    hook_strength: int = Field(alias="hookStrength", ge=1, le=5)
+    standalone_clarity: int = Field(alias="standaloneClarity", ge=1, le=5)
+    editability: int = Field(ge=1, le=5)
+
+
 class WindowScore(StrictModel):
     window_id: str = Field(alias="windowId")
+    recommendation: Recommendation
     final_score: int = Field(alias="finalScore", ge=0, le=100)
+    dimensions: ScoreDimensions
+    rejection_reason: RejectionReason = Field(alias="rejectionReason")
+    topic_label: str = Field(alias="topicLabel")
     type: ClipType
     recommendation_reason: str = Field(alias="recommendationReason")
 
@@ -45,9 +79,15 @@ class ScoreBatchResponse(StrictModel):
 
 class ScoredWindow(StrictModel):
     window: CandidateWindow
+    recommendation: Recommendation
     final_score: int = Field(ge=0, le=100)
+    dimensions: ScoreDimensions
     type: ClipType
+    rejection_reason: RejectionReason
+    topic_label: str
     recommendation_reason: str
+    needs_setup: bool = False
+    boundary_reason: str = ""
 
 
 class BoundaryDecision(StrictModel):
@@ -56,6 +96,8 @@ class BoundaryDecision(StrictModel):
     duplicate_of: str | None = Field(alias="duplicateOf")
     start_segment_id: str = Field(alias="startSegmentId")
     end_segment_id: str = Field(alias="endSegmentId")
+    boundary_reason: str = Field(alias="boundaryReason")
+    needs_setup: bool = Field(alias="needsSetup")
 
 
 class SelectionResponse(StrictModel):
@@ -64,9 +106,15 @@ class SelectionResponse(StrictModel):
 
 class FinalCandidateInput(StrictModel):
     window_id: str
+    recommendation: Recommendation
     final_score: int = Field(ge=0, le=100)
+    dimensions: ScoreDimensions
     type: ClipType
+    rejection_reason: RejectionReason
+    topic_label: str
     recommendation_reason: str
+    needs_setup: bool = False
+    boundary_reason: str = ""
     start_ms: int
     end_ms: int
     segment_ids: list[str]
@@ -78,6 +126,7 @@ class CandidateDetail(StrictModel):
     title_options: list[str] = Field(alias="titleOptions")
     summary: str
     quote: str
+    editing_note: str = Field(alias="editingNote")
     risk_notices: list[str] = Field(alias="riskNotices")
 
     @field_validator("title_options")
@@ -100,8 +149,12 @@ class FinalSubtitle(StrictModel):
 
 class FinalCandidate(StrictModel):
     rank: int
+    recommendation: Recommendation
     final_score: int = Field(ge=0, le=100)
+    dimensions: ScoreDimensions
     type: ClipType
+    rejection_reason: RejectionReason
+    topic_label: str
     start_ms: int
     end_ms: int
     title_options: list[str]
@@ -109,8 +162,29 @@ class FinalCandidate(StrictModel):
     summary: str
     quote: str
     recommendation_reason: str
+    editing_note: str
+    boundary_reason: str
+    needs_setup: bool
     risk_notices: list[str]
     subtitles: list[FinalSubtitle]
+
+
+class WindowScoreAudit(StrictModel):
+    window_id: str
+    start_ms: int
+    end_ms: int
+    segment_ids: list[str]
+    text_preview: str
+    recommendation: Recommendation
+    final_score: int = Field(ge=0, le=100)
+    type: ClipType
+    dimensions: ScoreDimensions
+    rejection_reason: RejectionReason
+    topic_label: str
+    recommendation_reason: str
+    selection_status: SelectionStatus
+    selection_reason: str
+    duplicate_of_window_id: str | None = None
 
 
 _UNSUPPORTED_STRICT_KEYWORDS = {
