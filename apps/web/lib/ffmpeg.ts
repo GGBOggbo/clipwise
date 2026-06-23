@@ -122,3 +122,49 @@ export async function extractAudioChunks(
   await ffmpeg.deleteFile(inputName);
   return blobs;
 }
+
+/**
+ * 用 ffmpeg.wasm 按时间戳切出一段 MP4（流拷贝，不重新编码）。
+ *
+ * -c copy 秒级完成、无损，切口对齐到最近关键帧（最多差几帧，
+ * 知识直播场景可接受）。返回 video/mp4 Blob。
+ *
+ * ffmpeg 参数说明：
+ * -ss start  - 跳到指定秒数（输入前 seek，快）
+ * -i input   - 输入文件
+ * -t dur     - 只取指定秒数
+ * -c copy    - 直接拷贝音视频流，不重新编码
+ * -avoid_negative_ts make_zero - 把负时间戳归零，避免某些播放器开头黑屏
+ */
+export async function sliceVideoClip(
+  file: File,
+  startMs: number,
+  endMs: number,
+): Promise<Blob> {
+  const ffmpeg = await getFFmpeg();
+  const inputName = "source.mp4";
+  const outputName = "clip.mp4";
+  const startSec = startMs / 1000;
+  const durationSec = (endMs - startMs) / 1000;
+
+  await ffmpeg.writeFile(inputName, await fetchFile(file));
+  await ffmpeg.exec([
+    "-ss",
+    String(startSec),
+    "-i",
+    inputName,
+    "-t",
+    String(durationSec),
+    "-c",
+    "copy",
+    "-avoid_negative_ts",
+    "make_zero",
+    outputName,
+  ]);
+
+  const data = await ffmpeg.readFile(outputName);
+  const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+  await ffmpeg.deleteFile(outputName);
+  await ffmpeg.deleteFile(inputName);
+  return new Blob([bytes.buffer as ArrayBuffer], { type: "video/mp4" });
+}
