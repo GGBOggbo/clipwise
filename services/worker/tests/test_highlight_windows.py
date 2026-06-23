@@ -3,6 +3,7 @@ import pytest
 from clipwise_worker.highlight_models import (
     BoundaryDecision,
     CandidateWindow,
+    ScoreDimensions,
     ScoredWindow,
     TranscriptSegment,
 )
@@ -12,6 +13,16 @@ from clipwise_worker.highlight_windows import (
     overlap_ratio,
     quote_is_verbatim,
     select_time_unique_windows,
+)
+
+
+DIMENSIONS = ScoreDimensions.model_validate(
+    {
+        "informationDensity": 4,
+        "hookStrength": 3,
+        "standaloneClarity": 4,
+        "editability": 4,
+    }
 )
 
 
@@ -42,53 +53,67 @@ def make_scored(
             segment_ids=[f"{window_id}-start", f"{window_id}-end"],
             text=window_id,
         ),
+        recommendation="recommended",
         final_score=score,
+        dimensions=DIMENSIONS,
         type="观点",
+        rejection_reason="none",
+        topic_label="测试主题",
         recommendation_reason="完整观点",
     )
 
 
-def test_generate_windows_aligns_to_segments_and_target_duration():
+def test_generate_windows_aligns_to_segments_and_editor_recall_duration():
     segments = make_segments(12)
 
     windows = generate_candidate_windows(segments)
 
     assert windows[0].start_ms == segments[0].start_ms
-    assert windows[0].end_ms == segments[5].end_ms
-    assert windows[0].segment_ids == [segment.id for segment in segments[:6]]
+    assert windows[0].end_ms == segments[7].end_ms
+    assert windows[0].segment_ids == [segment.id for segment in segments[:8]]
     assert windows[1].start_ms == segments[3].start_ms
-    assert all(45_000 <= window.end_ms - window.start_ms <= 150_000 for window in windows)
+    assert all(60_000 <= window.end_ms - window.start_ms <= 180_000 for window in windows)
 
 
 def test_generate_windows_returns_empty_for_empty_or_short_transcript():
     assert generate_candidate_windows([]) == []
+    # 60s 下限：4 个 15s 段恰好 60s，刚好达到 editor recall 最短窗口
+    assert len(generate_candidate_windows(make_segments(4))) >= 1
     assert generate_candidate_windows(make_segments(2)) == []
 
 
 def test_generate_windows_uses_last_complete_tail_window():
-    windows = generate_candidate_windows(make_segments(9))
+    windows = generate_candidate_windows(make_segments(12))
 
+    # 最后一个窗口从 segment-6(90s) 起，吞掉剩余所有段到 180s（未达 120s 目标但达 min）
     assert windows[-1].start_ms == 90_000
-    assert windows[-1].end_ms == 135_000
-    assert windows[-1].segment_ids == ["segment-6", "segment-7", "segment-8"]
+    assert windows[-1].end_ms == 180_000
+    assert windows[-1].segment_ids == [
+        "segment-6",
+        "segment-7",
+        "segment-8",
+        "segment-9",
+        "segment-10",
+        "segment-11",
+    ]
 
 
 def test_generate_windows_respects_real_segment_gaps():
-    segments = make_segments(6)
-    segments[3] = segments[3].model_copy(
-        update={"start_ms": 70_000, "end_ms": 85_000}
-    )
-    segments[4] = segments[4].model_copy(
-        update={"start_ms": 85_000, "end_ms": 100_000}
-    )
+    segments = make_segments(8)
     segments[5] = segments[5].model_copy(
-        update={"start_ms": 100_000, "end_ms": 115_000}
+        update={"start_ms": 95_000, "end_ms": 110_000}
+    )
+    segments[6] = segments[6].model_copy(
+        update={"start_ms": 110_000, "end_ms": 125_000}
+    )
+    segments[7] = segments[7].model_copy(
+        update={"start_ms": 125_000, "end_ms": 140_000}
     )
 
     windows = generate_candidate_windows(segments)
 
     assert windows[0].start_ms == 0
-    assert windows[0].end_ms == 100_000
+    assert windows[0].end_ms == 125_000
 
 
 def test_overlap_ratio_uses_shorter_window_and_keeps_exactly_eighty_percent():
@@ -142,9 +167,15 @@ def test_apply_boundary_decision_maps_only_real_segments_inside_window():
             segment_ids=[segment.id for segment in segments],
             text=" ".join(segment.text for segment in segments),
         ),
+        recommendation="recommended",
         final_score=88,
+        dimensions=DIMENSIONS,
         type="方法",
+        rejection_reason="none",
+        topic_label="测试主题",
         recommendation_reason="步骤完整",
+        needs_setup=False,
+        boundary_reason="",
     )
     decision = BoundaryDecision.model_validate(
         {
@@ -153,6 +184,8 @@ def test_apply_boundary_decision_maps_only_real_segments_inside_window():
             "duplicateOf": None,
             "startSegmentId": "segment-1",
             "endSegmentId": "segment-5",
+            "boundaryReason": "覆盖完整观点",
+            "needsSetup": False,
         }
     )
 
@@ -172,6 +205,8 @@ def test_apply_boundary_decision_maps_only_real_segments_inside_window():
         "segment-5",
     ]
     assert result.text == "第1句 第2句 第3句 第4句 第5句"
+    assert result.boundary_reason == "覆盖完整观点"
+    assert result.needs_setup is False
 
 
 @pytest.mark.parametrize(
@@ -196,9 +231,15 @@ def test_apply_boundary_decision_rejects_invalid_or_out_of_range_boundaries(
             segment_ids=[segment.id for segment in segments[1:7]],
             text="范围内文本",
         ),
+        recommendation="recommended",
         final_score=88,
+        dimensions=DIMENSIONS,
         type="方法",
+        rejection_reason="none",
+        topic_label="测试主题",
         recommendation_reason="步骤完整",
+        needs_setup=False,
+        boundary_reason="",
     )
     decision = BoundaryDecision.model_validate(
         {
@@ -207,6 +248,8 @@ def test_apply_boundary_decision_rejects_invalid_or_out_of_range_boundaries(
             "duplicateOf": None,
             "startSegmentId": start_id,
             "endSegmentId": end_id,
+            "boundaryReason": "边界",
+            "needsSetup": False,
         }
     )
 

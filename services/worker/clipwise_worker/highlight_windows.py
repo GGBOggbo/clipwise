@@ -14,9 +14,9 @@ from .highlight_models import (
 def generate_candidate_windows(
     segments: list[TranscriptSegment],
     *,
-    target_ms: int = 90_000,
-    min_ms: int = 45_000,
-    max_ms: int = 150_000,
+    target_ms: int = 120_000,
+    min_ms: int = 60_000,
+    max_ms: int = 180_000,
     step_ms: int = 45_000,
 ) -> list[CandidateWindow]:
     if not segments:
@@ -132,14 +132,20 @@ def apply_boundary_decision(
     start_ms = selected[0].start_ms
     end_ms = selected[-1].end_ms
     duration_ms = end_ms - start_ms
-    if duration_ms < 45_000 or duration_ms > 150_000:
-        raise ValueError("boundary duration must be between 45 and 150 seconds")
+    if duration_ms < 60_000 or duration_ms > 180_000:
+        raise ValueError("boundary duration must be between 60 and 180 seconds")
 
     return FinalCandidateInput(
         window_id=scored.window.window_id,
+        recommendation=scored.recommendation,
         final_score=scored.final_score,
+        dimensions=scored.dimensions,
         type=scored.type,
+        rejection_reason=scored.rejection_reason,
+        topic_label=scored.topic_label,
         recommendation_reason=scored.recommendation_reason,
+        needs_setup=decision.needs_setup,
+        boundary_reason=decision.boundary_reason,
         start_ms=start_ms,
         end_ms=end_ms,
         segment_ids=selected_ids,
