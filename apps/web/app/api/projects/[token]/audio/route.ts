@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { writeFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { db, schema } from "@/db/client";
 
-const STORAGE_ROOT = process.env.STORAGE_ROOT ?? "./storage";
+// 用绝对路径，保证 Worker（不同 cwd）能通过 project_files.storagePath 找到文件
+const STORAGE_ROOT = resolve(process.env.STORAGE_ROOT ?? "./storage");
 
 export async function POST(
   request: Request,
