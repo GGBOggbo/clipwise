@@ -1,0 +1,2 @@
+{"source":"sample-ai-livestream","startMs":120000,"endMs":240000,"label":"keep","idealStartMs":128000,"idealEndMs":232000,"topicLabel":"AI 项目报价","editorNote":"有判断标准和可复述结论，值得剪。","rejectReason":"none"}
+{"source":"sample-ai-livestream","startMs":360000,"endMs":420000,"label":"reject","idealStartMs":360000,"idealEndMs":420000,"topicLabel":"直播转场","editorNote":"主要是寒暄和转场，没有独立内容价值。","rejectReason":"transition"}

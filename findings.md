@@ -196,6 +196,8 @@
 - 拖拽设计：`docs/superpowers/specs/2026-06-22-upload-drag-drop-design.md`
 - 拖拽计划：`docs/superpowers/plans/2026-06-22-upload-drag-drop.md`
 
+- Phase 5.1 人工标注留出集路径为 `datasets/editor-recall-labels/`；该数据只用于后续校准，不得被 Worker 生产候选路径作为 mock 或 fallback 读取。
+
 ---
 
 *任何新的外部资料、浏览器发现和技术调研结果优先写入本文件。*
