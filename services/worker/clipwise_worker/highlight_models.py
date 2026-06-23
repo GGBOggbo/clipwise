@@ -187,6 +187,11 @@ class WindowScoreAudit(StrictModel):
     duplicate_of_window_id: str | None = None
 
 
+class HighlightPipelineResult(StrictModel):
+    candidates: list[FinalCandidate]
+    window_scores: list[WindowScoreAudit]
+
+
 _UNSUPPORTED_STRICT_KEYWORDS = {
     "default",
     "$defs",

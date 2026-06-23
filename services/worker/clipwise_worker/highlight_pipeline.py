@@ -13,15 +13,20 @@ from .highlight_models import (
     FinalCandidate,
     FinalCandidateInput,
     FinalSubtitle,
+    HighlightPipelineResult,
     ScoredWindow,
     TranscriptSegment,
     WindowScore,
+)
+from .highlight_selection import (
+    diversify_by_topic,
+    merge_window_score_audits,
+    select_editor_recall_pool,
 )
 from .highlight_windows import (
     apply_boundary_decision,
     generate_candidate_windows,
     quote_is_verbatim,
-    select_time_unique_windows,
 )
 
 
@@ -114,8 +119,12 @@ class HighlightPipeline:
         return [
             ScoredWindow(
                 window=windows_by_id[score.window_id],
+                recommendation=score.recommendation,
                 final_score=score.final_score,
+                dimensions=score.dimensions,
                 type=score.type,
+                rejection_reason=score.rejection_reason,
+                topic_label=score.topic_label,
                 recommendation_reason=score.recommendation_reason,
             )
             for score in scores
@@ -221,7 +230,7 @@ class HighlightPipeline:
         self,
         project_token: str,
         progress_callback: ProgressCallback | None = None,
-    ) -> list[FinalCandidate]:
+    ) -> HighlightPipelineResult:
         try:
             await self._progress(progress_callback, 10, "正在读取转写")
             segments = await read_transcript(self._db, project_token)
@@ -244,34 +253,56 @@ class HighlightPipeline:
                 windows,
                 self._client.score_windows(windows),
             )
-            time_unique = select_time_unique_windows(scored)
-            if not time_unique:
+            recall_pool, pool_audits = select_editor_recall_pool(scored)
+            if not recall_pool:
                 raise HighlightGenerationError(
                     "no_quality_candidates",
-                    "没有达到质量要求的候选片段",
+                    "没有达到召回要求的候选片段",
                 )
 
             await self._progress(progress_callback, 65, "正在筛选候选片段")
-            decisions = self._client.select_unique_candidates(time_unique)
-            kept = self._validate_selection(time_unique, decisions)
+            decisions = self._client.select_unique_candidates(recall_pool)
+            kept = self._validate_selection(recall_pool, decisions)
             segments_by_id = {segment.id: segment for segment in segments}
             bounded = [
                 apply_boundary_decision(candidate, decision, segments_by_id)
                 for candidate, decision in kept
             ]
-            bounded.sort(
-                key=lambda item: (-item.final_score, item.start_ms, item.window_id)
+            diverse, diversity_audits = diversify_by_topic(
+                [self._candidate_input_to_scored(item) for item in bounded],
+                target_count=30,
             )
-            bounded = bounded[:10]
+
+            if not diverse:
+                raise HighlightGenerationError(
+                    "no_quality_candidates",
+                    "没有达到召回要求的候选片段",
+                )
+
+            # 按推荐档位感知顺序排序，并赋 rank 1..N
+            diverse.sort(
+                key=lambda item: (
+                    {"strong": 0, "recommended": 1, "backup": 2, "reject": 3}[
+                        item.recommendation
+                    ],
+                    -item.final_score,
+                    item.window.start_ms,
+                    item.window.window_id,
+                )
+            )
+            bounded_by_id = {item.window_id: item for item in bounded}
 
             await self._progress(progress_callback, 85, "正在生成候选片段")
             details = self._validate_details(
-                bounded,
-                self._client.generate_candidate_details(bounded),
+                [bounded_by_id[item.window.window_id] for item in diverse],
+                self._client.generate_candidate_details(
+                    [bounded_by_id[item.window.window_id] for item in diverse]
+                ),
             )
 
             final: list[FinalCandidate] = []
-            for rank, candidate in enumerate(bounded, start=1):
+            for rank, item in enumerate(diverse, start=1):
+                candidate = bounded_by_id[item.window.window_id]
                 detail = details[candidate.window_id]
                 subtitles = [
                     FinalSubtitle(
@@ -284,8 +315,12 @@ class HighlightPipeline:
                 final.append(
                     FinalCandidate(
                         rank=rank,
+                        recommendation=candidate.recommendation,
                         final_score=candidate.final_score,
+                        dimensions=candidate.dimensions,
                         type=candidate.type,
+                        rejection_reason=candidate.rejection_reason,
+                        topic_label=candidate.topic_label,
                         start_ms=candidate.start_ms,
                         end_ms=candidate.end_ms,
                         title_options=detail.title_options,
@@ -293,11 +328,19 @@ class HighlightPipeline:
                         summary=detail.summary,
                         quote=detail.quote,
                         recommendation_reason=candidate.recommendation_reason,
+                        editing_note=detail.editing_note,
+                        boundary_reason=candidate.boundary_reason,
+                        needs_setup=candidate.needs_setup,
                         risk_notices=detail.risk_notices,
                         subtitles=subtitles,
                     )
                 )
-            return final
+            return HighlightPipelineResult(
+                candidates=final,
+                window_scores=merge_window_score_audits(
+                    scored, pool_audits, diversity_audits
+                ),
+            )
         except HighlightGenerationError:
             raise
         except DeepSeekError as exc:
@@ -305,3 +348,27 @@ class HighlightPipeline:
                 exc.code,
                 "AI 分析失败，请重试",
             ) from exc
+
+    @staticmethod
+    def _candidate_input_to_scored(
+        item: FinalCandidateInput,
+    ) -> ScoredWindow:
+        """把边界裁剪后的候选转回 ScoredWindow，供主题分散使用。"""
+        return ScoredWindow(
+            window=CandidateWindow(
+                window_id=item.window_id,
+                start_ms=item.start_ms,
+                end_ms=item.end_ms,
+                segment_ids=item.segment_ids,
+                text=item.text,
+            ),
+            recommendation=item.recommendation,
+            final_score=item.final_score,
+            dimensions=item.dimensions,
+            type=item.type,
+            rejection_reason=item.rejection_reason,
+            topic_label=item.topic_label,
+            recommendation_reason=item.recommendation_reason,
+            needs_setup=item.needs_setup,
+            boundary_reason=item.boundary_reason,
+        )

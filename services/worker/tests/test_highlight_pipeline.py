@@ -38,10 +38,19 @@ async def insert_project_with_transcript(db, *, segment_count=8):
     return project_token
 
 
+_DIMENSIONS = {
+    "informationDensity": 4,
+    "hookStrength": 3,
+    "standaloneClarity": 4,
+    "editability": 4,
+}
+
+
 class RecordingDeepSeekClient:
-    def __init__(self, *, score=88, quote_override=None):
+    def __init__(self, *, score=88, quote_override=None, recommendation=None):
         self.score = score
         self.quote_override = quote_override
+        self.recommendation = recommendation
         self.calls = []
 
     def score_windows(self, windows):
@@ -50,7 +59,11 @@ class RecordingDeepSeekClient:
             WindowScore.model_validate(
                 {
                     "windowId": window.window_id,
+                    "recommendation": self.recommendation or "recommended",
                     "finalScore": self.score,
+                    "dimensions": _DIMENSIONS,
+                    "rejectionReason": "none",
+                    "topicLabel": "测试主题",
                     "type": "方法",
                     "recommendationReason": "步骤完整，可独立理解",
                 }
@@ -68,6 +81,8 @@ class RecordingDeepSeekClient:
                     "duplicateOf": None,
                     "startSegmentId": item.window.segment_ids[0],
                     "endSegmentId": item.window.segment_ids[-1],
+                    "boundaryReason": "覆盖完整观点",
+                    "needsSetup": False,
                 }
             )
             for item in candidates
@@ -86,6 +101,7 @@ class RecordingDeepSeekClient:
                     ],
                     "summary": "这是忠于原文的摘要。",
                     "quote": self.quote_override or item.text.split(" ")[0],
+                    "editingNote": "可直接作为知识切片粗剪素材。",
                     "riskNotices": [],
                 }
             )
@@ -100,7 +116,11 @@ class InvertedDuplicateDeepSeekClient(RecordingDeepSeekClient):
             WindowScore.model_validate(
                 {
                     "windowId": window.window_id,
+                    "recommendation": "recommended",
                     "finalScore": 70 if index == 0 else 92,
+                    "dimensions": _DIMENSIONS,
+                    "rejectionReason": "none",
+                    "topicLabel": "测试主题",
                     "type": "方法",
                     "recommendationReason": "步骤完整，可独立理解",
                 }
@@ -120,6 +140,8 @@ class InvertedDuplicateDeepSeekClient(RecordingDeepSeekClient):
                     "duplicateOf": None,
                     "startSegmentId": low_score_candidate.window.segment_ids[0],
                     "endSegmentId": low_score_candidate.window.segment_ids[-1],
+                    "boundaryReason": "覆盖完整观点",
+                    "needsSetup": False,
                 }
             ),
             BoundaryDecision.model_validate(
@@ -129,6 +151,8 @@ class InvertedDuplicateDeepSeekClient(RecordingDeepSeekClient):
                     "duplicateOf": low_score_candidate.window.window_id,
                     "startSegmentId": high_score_candidate.window.segment_ids[0],
                     "endSegmentId": high_score_candidate.window.segment_ids[-1],
+                    "boundaryReason": "覆盖完整观点",
+                    "needsSetup": False,
                 }
             ),
         ]
@@ -147,6 +171,8 @@ class InvertedDuplicateDeepSeekClient(RecordingDeepSeekClient):
                         "duplicateOf": None,
                         "startSegmentId": item.window.segment_ids[0],
                         "endSegmentId": item.window.segment_ids[-1],
+                        "boundaryReason": "覆盖完整观点",
+                        "needsSetup": False,
                     }
                 )
             )
@@ -166,6 +192,8 @@ class MissingDuplicateTargetDeepSeekClient(InvertedDuplicateDeepSeekClient):
                     ),
                     "startSegmentId": item.window.segment_ids[0],
                     "endSegmentId": item.window.segment_ids[-1],
+                    "boundaryReason": "覆盖完整观点",
+                    "needsSetup": False,
                 }
             )
             for index, item in enumerate(candidates)
@@ -181,12 +209,37 @@ async def test_highlight_pipeline_runs_three_stages_and_builds_real_subtitles(db
         result = await HighlightPipeline(db, client).generate(project_token)
 
         assert client.calls == ["score", "select", "details"]
-        assert 1 <= len(result) <= 10
-        assert result[0].rank == 1
-        assert result[0].selected_title == result[0].title_options[0]
-        assert result[0].subtitles[0].text == "这是第0句真实转写内容。"
-        assert result[0].start_ms == result[0].subtitles[0].start_ms
-        assert result[0].end_ms == result[0].subtitles[-1].end_ms
+        assert 1 <= len(result.candidates) <= 30
+        assert result.candidates[0].rank == 1
+        assert result.candidates[0].recommendation == "recommended"
+        assert result.candidates[0].topic_label == "测试主题"
+        assert result.candidates[0].editing_note == "可直接作为知识切片粗剪素材。"
+        assert result.candidates[0].boundary_reason == "覆盖完整观点"
+        assert result.candidates[0].needs_setup is False
+        assert result.candidates[0].selected_title == result.candidates[0].title_options[0]
+        assert result.candidates[0].subtitles[0].text == "这是第0句真实转写内容。"
+        assert result.candidates[0].start_ms == result.candidates[0].subtitles[0].start_ms
+        assert result.candidates[0].end_ms == result.candidates[0].subtitles[-1].end_ms
+    finally:
+        async with db.pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM projects WHERE token = $1",
+                project_token,
+            )
+
+
+@pytest.mark.asyncio
+async def test_highlight_pipeline_returns_window_score_audits(db):
+    project_token = await insert_project_with_transcript(db, segment_count=16)
+    client = RecordingDeepSeekClient()
+
+    try:
+        result = await HighlightPipeline(db, client).generate(project_token)
+
+        assert result.candidates
+        assert result.window_scores
+        assert {audit.selection_status for audit in result.window_scores}
+        assert all(audit.topic_label for audit in result.window_scores)
     finally:
         async with db.pool.acquire() as conn:
             await conn.execute(
@@ -203,11 +256,11 @@ async def test_highlight_pipeline_keeps_higher_scoring_duplicate_source(db):
     try:
         result = await HighlightPipeline(db, client).generate(project_token)
 
-        assert 1 < len(result) <= 10
-        assert [candidate.rank for candidate in result] == list(
-            range(1, len(result) + 1)
+        assert 1 < len(result.candidates) <= 30
+        assert [candidate.rank for candidate in result.candidates] == list(
+            range(1, len(result.candidates) + 1)
         )
-        assert result[0].final_score >= result[1].final_score
+        assert result.candidates[0].final_score >= result.candidates[1].final_score
     finally:
         async with db.pool.acquire() as conn:
             await conn.execute(
@@ -224,9 +277,9 @@ async def test_highlight_pipeline_keeps_candidate_with_missing_duplicate_target(
     try:
         result = await HighlightPipeline(db, client).generate(project_token)
 
-        assert 1 < len(result) <= 10
-        assert [candidate.rank for candidate in result] == list(
-            range(1, len(result) + 1)
+        assert 1 < len(result.candidates) <= 30
+        assert [candidate.rank for candidate in result.candidates] == list(
+            range(1, len(result.candidates) + 1)
         )
     finally:
         async with db.pool.acquire() as conn:
@@ -259,7 +312,7 @@ async def test_highlight_pipeline_fails_when_transcript_is_missing(db):
 @pytest.mark.asyncio
 async def test_highlight_pipeline_fails_when_all_windows_are_low_quality(db):
     project_token = await insert_project_with_transcript(db)
-    client = RecordingDeepSeekClient(score=59)
+    client = RecordingDeepSeekClient(score=59, recommendation="reject")
 
     try:
         with pytest.raises(HighlightGenerationError) as exc_info:
