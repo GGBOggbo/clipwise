@@ -7,15 +7,34 @@ from clipwise_worker.candidates import (
     replace_project_candidates,
     restore_after_regeneration_failure,
 )
-from clipwise_worker.highlight_models import FinalCandidate, FinalSubtitle
+from clipwise_worker.highlight_models import (
+    FinalCandidate,
+    FinalSubtitle,
+    ScoreDimensions,
+    WindowScoreAudit,
+)
+
+
+_DIMENSIONS = ScoreDimensions.model_validate(
+    {
+        "informationDensity": 4,
+        "hookStrength": 3,
+        "standaloneClarity": 4,
+        "editability": 4,
+    }
+)
 
 
 def final_candidate(rank: int, *, title: str) -> FinalCandidate:
     start_ms = (rank - 1) * 100_000
     return FinalCandidate(
         rank=rank,
+        recommendation="recommended",
         final_score=90 - rank,
+        dimensions=_DIMENSIONS,
         type="观点",
+        rejection_reason="none",
+        topic_label="测试主题",
         start_ms=start_ms,
         end_ms=start_ms + 90_000,
         title_options=[title, f"{title}二", f"{title}三"],
@@ -23,6 +42,9 @@ def final_candidate(rank: int, *, title: str) -> FinalCandidate:
         summary=f"{title}摘要",
         quote=f"{title}原文",
         recommendation_reason="观点完整",
+        editing_note="这段可以直接粗剪。",
+        boundary_reason="从观点开始，到结论结束。",
+        needs_setup=False,
         risk_notices=[],
         subtitles=[
             FinalSubtitle(
@@ -36,6 +58,26 @@ def final_candidate(rank: int, *, title: str) -> FinalCandidate:
                 text=f"{title}结论",
             ),
         ],
+    )
+
+
+def audit(window_id: str) -> WindowScoreAudit:
+    return WindowScoreAudit(
+        window_id=window_id,
+        start_ms=0,
+        end_ms=120_000,
+        segment_ids=["s1", "s2"],
+        text_preview="窗口预览",
+        recommendation="recommended",
+        final_score=80,
+        type="方法",
+        dimensions=_DIMENSIONS,
+        rejection_reason="none",
+        topic_label="测试主题",
+        recommendation_reason="值得查看",
+        selection_status="selected",
+        selection_reason="selected_by_topic_diversity",
+        duplicate_of_window_id=None,
     )
 
 
@@ -80,12 +122,24 @@ async def test_replace_project_candidates_writes_candidates_and_real_subtitles(d
                 final_candidate(1, title="第一条"),
                 final_candidate(2, title="第二条"),
             ],
+            [audit("window-0001")],
         )
 
         async with db.pool.acquire() as conn:
             candidates = await conn.fetch(
                 "SELECT id, rank, selected_title FROM clip_candidates "
                 "WHERE project_token = $1 ORDER BY rank",
+                token,
+            )
+            row = await conn.fetchrow(
+                "SELECT recommendation, topic_label, editing_note, "
+                "boundary_reason, needs_setup, rejection_reason "
+                "FROM clip_candidates WHERE project_token = $1",
+                token,
+            )
+            audit_count = await conn.fetchval(
+                "SELECT count(*) FROM highlight_window_scores "
+                "WHERE project_token = $1",
                 token,
             )
             subtitles = await conn.fetch(
@@ -105,6 +159,15 @@ async def test_replace_project_candidates_writes_candidates_and_real_subtitles(d
             "第一条",
             "第二条",
         ]
+        assert dict(row) == {
+            "recommendation": "recommended",
+            "topic_label": "测试主题",
+            "editing_note": "这段可以直接粗剪。",
+            "boundary_reason": "从观点开始，到结论结束。",
+            "needs_setup": False,
+            "rejection_reason": "none",
+        }
+        assert audit_count == 1
         assert subtitles[0]["text"] == "第一条原文"
         assert subtitles[0]["start_ms"] == 0
         assert subtitles[1]["end_ms"] == 90_000
@@ -136,6 +199,7 @@ async def test_replace_project_candidates_rolls_back_when_new_insert_fails(
                     final_candidate(1, title="新一"),
                     final_candidate(2, title="新二"),
                 ],
+                [],
             )
 
         async with db.pool.acquire() as conn:

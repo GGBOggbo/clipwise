@@ -189,7 +189,7 @@ class Pipeline:
 
         try:
             service = self._candidate_service_factory(self._config)
-            candidates = await service.generate(
+            result = await service.generate(
                 project_token,
                 progress_callback=report,
             )
@@ -197,7 +197,8 @@ class Pipeline:
                 await replace_project_candidates(
                     self._db,
                     project_token,
-                    candidates,
+                    result.candidates,
+                    result.window_scores,
                 )
             except Exception:
                 logger.exception("候选持久化失败: %s", task_id)
