@@ -93,6 +93,85 @@ class RecordingDeepSeekClient:
         ]
 
 
+class InvertedDuplicateDeepSeekClient(RecordingDeepSeekClient):
+    def score_windows(self, windows):
+        self.calls.append("score")
+        return [
+            WindowScore.model_validate(
+                {
+                    "windowId": window.window_id,
+                    "finalScore": 70 if index == 0 else 92,
+                    "type": "方法",
+                    "recommendationReason": "步骤完整，可独立理解",
+                }
+            )
+            for index, window in enumerate(windows)
+        ]
+
+    def select_unique_candidates(self, candidates):
+        self.calls.append("select")
+        high_score_candidate = candidates[0]
+        low_score_candidate = candidates[-1]
+        decisions = [
+            BoundaryDecision.model_validate(
+                {
+                    "windowId": low_score_candidate.window.window_id,
+                    "keep": True,
+                    "duplicateOf": None,
+                    "startSegmentId": low_score_candidate.window.segment_ids[0],
+                    "endSegmentId": low_score_candidate.window.segment_ids[-1],
+                }
+            ),
+            BoundaryDecision.model_validate(
+                {
+                    "windowId": high_score_candidate.window.window_id,
+                    "keep": False,
+                    "duplicateOf": low_score_candidate.window.window_id,
+                    "startSegmentId": high_score_candidate.window.segment_ids[0],
+                    "endSegmentId": high_score_candidate.window.segment_ids[-1],
+                }
+            ),
+        ]
+        inverted_ids = {
+            high_score_candidate.window.window_id,
+            low_score_candidate.window.window_id,
+        }
+        for item in candidates:
+            if item.window.window_id in inverted_ids:
+                continue
+            decisions.append(
+                BoundaryDecision.model_validate(
+                    {
+                        "windowId": item.window.window_id,
+                        "keep": True,
+                        "duplicateOf": None,
+                        "startSegmentId": item.window.segment_ids[0],
+                        "endSegmentId": item.window.segment_ids[-1],
+                    }
+                )
+            )
+        return decisions
+
+
+class MissingDuplicateTargetDeepSeekClient(InvertedDuplicateDeepSeekClient):
+    def select_unique_candidates(self, candidates):
+        self.calls.append("select")
+        return [
+            BoundaryDecision.model_validate(
+                {
+                    "windowId": item.window.window_id,
+                    "keep": False if index in (0, 1) else True,
+                    "duplicateOf": (
+                        candidates[1].window.window_id if index == 0 else None
+                    ),
+                    "startSegmentId": item.window.segment_ids[0],
+                    "endSegmentId": item.window.segment_ids[-1],
+                }
+            )
+            for index, item in enumerate(candidates)
+        ]
+
+
 @pytest.mark.asyncio
 async def test_highlight_pipeline_runs_three_stages_and_builds_real_subtitles(db):
     project_token = await insert_project_with_transcript(db)
@@ -108,6 +187,47 @@ async def test_highlight_pipeline_runs_three_stages_and_builds_real_subtitles(db
         assert result[0].subtitles[0].text == "这是第0句真实转写内容。"
         assert result[0].start_ms == result[0].subtitles[0].start_ms
         assert result[0].end_ms == result[0].subtitles[-1].end_ms
+    finally:
+        async with db.pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM projects WHERE token = $1",
+                project_token,
+            )
+
+
+@pytest.mark.asyncio
+async def test_highlight_pipeline_keeps_higher_scoring_duplicate_source(db):
+    project_token = await insert_project_with_transcript(db, segment_count=16)
+    client = InvertedDuplicateDeepSeekClient()
+
+    try:
+        result = await HighlightPipeline(db, client).generate(project_token)
+
+        assert 1 < len(result) <= 10
+        assert [candidate.rank for candidate in result] == list(
+            range(1, len(result) + 1)
+        )
+        assert result[0].final_score >= result[1].final_score
+    finally:
+        async with db.pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM projects WHERE token = $1",
+                project_token,
+            )
+
+
+@pytest.mark.asyncio
+async def test_highlight_pipeline_keeps_candidate_with_missing_duplicate_target(db):
+    project_token = await insert_project_with_transcript(db, segment_count=16)
+    client = MissingDuplicateTargetDeepSeekClient()
+
+    try:
+        result = await HighlightPipeline(db, client).generate(project_token)
+
+        assert 1 < len(result) <= 10
+        assert [candidate.rank for candidate in result] == list(
+            range(1, len(result) + 1)
+        )
     finally:
         async with db.pool.acquire() as conn:
             await conn.execute(

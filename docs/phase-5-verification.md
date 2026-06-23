@@ -66,6 +66,8 @@ rg -n "generate_mock_candidates|MOCK_CANDIDATES|mock_ai" \
 - 初次 DeepSeek strict tool 连通性检查暴露嵌套 `$ref/$defs` schema 没有被充分约束，模型返回了 schema 外字段/非法枚举。
 - 修复为内联 schema 后，DeepSeek strict 返回通过 Pydantic 校验。
 - 最终真实候选生成成功，写入 1 条候选，字幕和 quote 均来自 transcript。
+- 页面真实上传 `/Users/chk/Downloads/飞书20260623-131141.mp4` 后，Web 本地抽取音频并上传成功；Groq ASR 成功，项目 `K2NgL4Gl` 生成 3 条真实候选，自动溯源检查 passed。
+- DeepSeek 去重阶段偶发返回不一致 duplicate 决策；业务层已增加确定性纠偏：当 duplicate target 未保留或分数低于 source 时，本地保留 source，避免真实项目整单失败。
 
 ## 人工抽查
 

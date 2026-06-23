@@ -114,6 +114,7 @@
 | 2026-06-23 | `pnpm build` 在未设置 `DATABASE_URL` 的 shell 失败 | 1 | 用本地开发 `DATABASE_URL` 执行 build，并在验收记录中标明该约束 |
 | 2026-06-23 | Groq 直接接收 96.8MB 原视频返回 413 | 1 | 用 macOS `avconvert` 抽取前 120 秒 m4a 样本做真实验收；长视频自动分片留给 Phase 4.1 |
 | 2026-06-23 | DeepSeek strict tool 对 `$ref/$defs` 嵌套 schema 约束不足 | 1 | 生成工具 schema 时内联 `$ref/$defs`，再用 Pydantic 和业务校验兜底 |
+| 2026-06-23 | DeepSeek 语义去重偶发返回不一致 duplicate 决策 | 1 | 业务层对“指向未保留候选/指向更低分候选”的重复关系做本地保留纠偏 |
 
 ## 工作区状态
 

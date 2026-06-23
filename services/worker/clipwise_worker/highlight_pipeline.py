@@ -141,6 +141,7 @@ class HighlightPipeline:
         decisions_by_id = {
             decision.window_id: decision for decision in decisions
         }
+        normalized_decisions = dict(decisions_by_id)
         kept_ids = {
             decision.window_id for decision in decisions if decision.keep
         }
@@ -159,22 +160,36 @@ class HighlightPipeline:
                     )
                 continue
             if decision.duplicate_of not in kept_ids:
-                raise HighlightGenerationError(
-                    "deepseek_invalid_response",
-                    "重复候选必须指向保留候选",
+                normalized_decisions[decision.window_id] = decision.model_copy(
+                    update={
+                        "keep": True,
+                        "duplicate_of": None,
+                    }
                 )
+                kept_ids.add(decision.window_id)
+                continue
             source = candidates_by_id[decision.window_id]
             target = candidates_by_id[decision.duplicate_of]
             if target.final_score < source.final_score:
-                raise HighlightGenerationError(
-                    "deepseek_invalid_response",
-                    "重复候选不能指向更低分候选",
+                normalized_decisions[decision.window_id] = decision.model_copy(
+                    update={
+                        "keep": True,
+                        "duplicate_of": None,
+                    }
                 )
+                kept_ids.add(decision.window_id)
+                if not any(
+                    other.window_id != decision.window_id
+                    and not other.keep
+                    and other.duplicate_of == decision.duplicate_of
+                    for other in decisions
+                ):
+                    kept_ids.discard(decision.duplicate_of)
 
         return [
-            (candidate, decisions_by_id[candidate.window.window_id])
+            (candidate, normalized_decisions[candidate.window.window_id])
             for candidate in candidates
-            if decisions_by_id[candidate.window.window_id].keep
+            if candidate.window.window_id in kept_ids
         ]
 
     @staticmethod
