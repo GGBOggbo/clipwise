@@ -96,6 +96,7 @@ export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
             onRequestPreview={() => {
               if (candidate) previewCandidate(candidate.id);
             }}
+            token={workspace.project.token}
           />
         </section>
 

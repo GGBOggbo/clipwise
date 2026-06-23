@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import type { ClipCandidate, SaveStatus } from "@clipwise/shared";
 import { useAutosave } from "@/features/autosave/useAutosave";
+import { patchCandidate } from "@/lib/candidate-api";
 import { ExportPanel } from "./ExportPanel";
 import styles from "./Editor.module.css";
 
@@ -13,6 +14,7 @@ type EditorTabsProps = {
   videoConnected: boolean;
   onCandidateChange: (candidate: ClipCandidate) => void;
   onRequestPreview: () => void;
+  token: string;
 };
 
 function formatTime(milliseconds: number) {
@@ -40,11 +42,15 @@ export function EditorTabs({
   videoConnected,
   onCandidateChange,
   onRequestPreview,
+  token,
 }: EditorTabsProps) {
   const [tab, setTab] = useState<EditorTab>("copy");
-  const save = useCallback(async () => {
-    await Promise.resolve();
-  }, []);
+  const save = useCallback(
+    async (next: ClipCandidate) => {
+      await patchCandidate(token, next);
+    },
+    [token],
+  );
   const autosave = useAutosave<ClipCandidate>(save, 500);
 
   function change(next: ClipCandidate) {

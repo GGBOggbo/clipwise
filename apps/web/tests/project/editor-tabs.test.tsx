@@ -1,8 +1,18 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { ProjectWorkspace } from "@/components/project/ProjectWorkspace";
 import { mockReadyProject } from "@clipwise/shared";
+
+// patchCandidate 接通真实 API 后，编辑会触发 fetch；
+// jsdom 环境没有真实后端，需要 mock fetch 让它 resolve。
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) }),
+  );
+});
+afterEach(() => vi.restoreAllMocks());
 
 async function selectFirstCandidate(user: ReturnType<typeof userEvent.setup>) {
   await user.click(
