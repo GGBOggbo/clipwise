@@ -67,6 +67,7 @@
 - [x] Web 页面真实上传 8 分钟视频并生成真实候选
 - [ ] Phase 5.1：按剪辑师工作流重新校准召回目标，从 TOP 10 升级到约 30 条片段建议，并持久化淘汰原因/评分过程用于解释
   - [x] 编写 Phase 5.1 规格文档，明确「剪辑师素材召回」不是「成片爆款判断」
+  - [x] 编写 Phase 5.1 实施计划，拆分数据库、Worker、DeepSeek、Web、验收任务
   - [ ] 将评分从通用内容质量改为 4+1：信息密度、钩子强度、独立可懂、可剪成片、否决项
   - [ ] 模型输出离散推荐档位：strong/recommended/backup/reject，`finalScore` 仅作排序辅助
   - [ ] 新增剪辑师核心字段：`topicLabel`、`editingNote`、`boundaryReason`、`needsSetup`
@@ -154,3 +155,4 @@
 - 当前 Web/Worker 仍在本机运行，方便用户刷新 `http://localhost:3000` 查看项目 `K2NgL4Gl...` 的 3 条真实候选。
 - 压缩上下文后继续时，优先不要直接改 DeepSeek prompt；先写 Phase 5.1 规格/计划，再按 TDD 改 strict 数据契约、DeepSeek schema、pipeline、持久化和前端展示。
 - Phase 5.1 规格已写入 `docs/superpowers/specs/2026-06-23-clipwise-phase5-1-editor-recall-design.md`；实施前需要基于该规格写详细计划。
+- Phase 5.1 实施计划已写入 `docs/superpowers/plans/2026-06-23-clipwise-phase5-1-editor-recall.md`；执行前需确保播放器 bugfix 两个未提交文件不混入 Phase 5.1 提交。

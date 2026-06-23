@@ -158,7 +158,7 @@
 
 ## 会话：2026-06-23 压缩后恢复与 Phase 5.1 规格
 
-- **状态：** spec_written_pending_review
+- **状态：** implementation_plan_written
 - 已完成：
   - 重新读取 `task_plan.md`、`findings.md`、`progress.md` 和 `docs/phase-5-verification.md`。
   - 检查当前分支仍为 `codex/phase5-deepseek`。
@@ -175,8 +175,29 @@
   - 新增 `highlight_window_scores` 持久化窗口评分、淘汰原因和选择状态。
   - 最终选择通过 topicLabel 软配额做主题分散，长直播目标约 30 条，短样本不足时不补假候选。
 - 下一步：
-  - 等用户确认规格方向后，使用 writing-plans 写 Phase 5.1 实施计划。
   - 实施计划完成后再按 TDD 改 strict models、DeepSeek schema、pipeline、DB migration、API/shared domain 和前端展示。
+
+## 会话：2026-06-23 Phase 5.1 实施计划
+
+- **状态：** plan_written_pending_execution_choice
+- 已完成：
+  - 用户确认 Phase 5.1 规格方向。
+  - 使用 writing-plans 写入实施计划：`docs/superpowers/plans/2026-06-23-clipwise-phase5-1-editor-recall.md`。
+  - 计划自查未发现 `TBD`、`TODO`、`implement later`、`fill in` 等占位词。
+  - 计划明确了执行前置条件：当前播放器 bugfix 两个未提交文件不得混入 Phase 5.1 提交。
+- 实施计划任务边界：
+  - Task 1：数据库 schema 与 `highlight_window_scores`。
+  - Task 2：shared domain、fixtures、API mapping、推荐标签。
+  - Task 3：Worker strict contracts。
+  - Task 4：窗口参数与确定性召回/主题分散。
+  - Task 5：DeepSeek prompt 与 strict client。
+  - Task 6：pipeline 组装 audits、topic diversity、最多 30 条。
+  - Task 7：候选与窗口评分同事务持久化。
+  - Task 8：项目页展示推荐档位、topic、needsSetup、editingNote、boundaryReason。
+  - Task 9：剪辑师人工标注留出集 scaffold。
+  - Task 10：全量验证、真实 8 分钟视频验收、文档更新。
+- 下一步：
+  - 用户选择执行方式后开始实施：推荐 Subagent-Driven；也可以 Inline Execution。
 
 ## 错误日志
 
