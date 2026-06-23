@@ -24,6 +24,26 @@ def test_worker_config_reads_deepseek_settings(monkeypatch):
     assert config.deepseek_output_mode == "strict_tool"
 
 
+def test_worker_config_reads_max_concurrency(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgres://example")
+    monkeypatch.setenv("GROQ_API_KEY", "groq-key")
+    monkeypatch.setenv("WORKER_MAX_CONCURRENCY", "3")
+
+    config = WorkerConfig.from_env()
+
+    assert config.max_concurrency == 3
+
+
+def test_worker_config_defaults_max_concurrency_to_two(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgres://example")
+    monkeypatch.setenv("GROQ_API_KEY", "groq-key")
+    monkeypatch.delenv("WORKER_MAX_CONCURRENCY", raising=False)
+
+    config = WorkerConfig.from_env()
+
+    assert config.max_concurrency == 2
+
+
 def completion(arguments, *, name="submit_window_scores", finish_reason="tool_calls"):
     tool_calls = (
         []

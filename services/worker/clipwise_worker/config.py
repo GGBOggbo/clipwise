@@ -18,6 +18,7 @@ class WorkerConfig:
     deepseek_output_mode: str = "strict_tool"
     storage_root: str = "./storage"
     poll_interval_seconds: float = 1.0
+    max_concurrency: int = 2
 
     @classmethod
     def from_env(cls) -> "WorkerConfig":
@@ -28,6 +29,7 @@ class WorkerConfig:
         if not groq_api_key:
             raise RuntimeError("GROQ_API_KEY 环境变量未设置")
         poll_interval = float(os.environ.get("WORKER_POLL_INTERVAL", "1.0"))
+        max_concurrency = int(os.environ.get("WORKER_MAX_CONCURRENCY", "2"))
         return cls(
             database_url=database_url,
             groq_api_key=groq_api_key,
@@ -47,4 +49,5 @@ class WorkerConfig:
             ),
             storage_root=os.environ.get("STORAGE_ROOT", "./storage"),
             poll_interval_seconds=poll_interval,
+            max_concurrency=max_concurrency,
         )
