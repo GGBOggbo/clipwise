@@ -3,8 +3,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useAudioExtraction } from "@/features/upload/use-audio-extraction";
 
 // mock ffmpeg 模块（不真跑 wasm）
+const mockCalculateChunks = vi.fn(() => [
+  { startOffsetMs: 0, durationMs: 60000 },
+]);
 vi.mock("@/lib/ffmpeg", () => ({
-  calculateChunks: () => [{ startOffsetMs: 0, durationMs: 60000 }],
+  calculateChunks: (...args: unknown[]) => mockCalculateChunks(...args),
+  probeVideoDurationMs: vi.fn().mockResolvedValue(7_200_000), // 2 小时
   getFFmpeg: vi.fn().mockResolvedValue({}),
   extractAudioChunks: vi
     .fn()
@@ -48,6 +52,12 @@ describe("useAudioExtraction", () => {
     });
     expect(result.current.taskId).toBe("task-1");
     expect(result.current.projectToken).toBe("tok-1");
+    // 关键：calculateChunks 拿到的是 probe 出的真实时长（2 小时），不是硬编码 20 分钟
+    expect(mockCalculateChunks).toHaveBeenCalledWith(
+      7_200_000,
+      30 * 60 * 1000,
+      30 * 1000,
+    );
   });
 
   it("ffmpeg 失败时 phase=error", async () => {

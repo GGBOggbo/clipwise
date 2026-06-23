@@ -5,6 +5,7 @@ import {
   calculateChunks,
   extractAudioChunks,
   getFFmpeg,
+  probeVideoDurationMs,
 } from "@/lib/ffmpeg";
 
 export type ExtractionPhase =
@@ -32,7 +33,10 @@ export function useAudioExtraction() {
     setProgress(0);
 
     try {
-      // 1. 创建项目
+      // 1. 先探测真实时长（用于分块计算和项目记录）
+      const durationMs = await probeVideoDurationMs(file);
+
+      // 2. 创建项目（带真实时长）
       setPhase("creating-project");
       const createResp = await fetch(`${API_BASE}/api/projects`, {
         method: "POST",
@@ -40,7 +44,7 @@ export function useAudioExtraction() {
         body: JSON.stringify({
           fileName: file.name,
           fileSize: file.size,
-          durationMs: 0, // TODO: 从 <video> 读真实 duration，Phase 4 后期补
+          durationMs,
         }),
       });
       if (!createResp.ok) {
@@ -51,14 +55,12 @@ export function useAudioExtraction() {
       };
       setProjectToken(projectToken);
 
-      // 2. 加载 ffmpeg + 提取音频
+      // 3. 加载 ffmpeg + 按真实时长分块提取音频
       setPhase("loading-ffmpeg");
       await getFFmpeg();
       setPhase("extracting");
-      // durationMs 未知时按 30 分钟内估算（短视频只切 1 块）
-      const assumedDurationMs = 20 * 60 * 1000;
       const chunks = calculateChunks(
-        assumedDurationMs,
+        durationMs,
         CHUNK_DURATION_MS,
         OVERLAP_MS,
       );
