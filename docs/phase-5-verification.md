@@ -84,3 +84,32 @@ rg -n "generate_mock_candidates|MOCK_CANDIDATES|mock_ai" \
 - 普通 `pnpm build` 在没有 `DATABASE_URL` 的 shell 中会失败；这是当前 API route 在 build 收集阶段加载 DB client 的既有约束。本次验收使用本地开发数据库 URL 执行 build。
 - Phase 4.1 仍需实现生产级长视频分片；本次真实验收用 `avconvert --duration 120` 手动抽样规避 Groq 单请求大小限制。
 - ASR 原文存在少量识别错误，例如专有词/英文技术词转写不准；候选生成严格基于该 transcript，没有越权修正文稿。
+
+---
+
+## Phase 5.1 Editor Recall Verification
+
+Phase 5.1 把 Phase 5 的 TOP 10 爆款选择器升级为剪辑师召回管线：最多 30 条、带推荐档位（strong/recommended/backup/reject）、4 维 1-5 分评分、主题分散、剪辑建议、边界理由、setup 标记，并为每个被评分窗口留审计痕。
+
+### 自动测试
+
+| 项目 | 命令 | 结果 |
+|---|---|---|
+| Worker 全量测试 | `cd services/worker && env -u ... uv run pytest -q` | PASS：74 passed |
+| Web 单测 | `DATABASE_URL=... pnpm --filter @clipwise/web exec vitest run --exclude 'tests/integration/**'` | PASS：35 files / 97 tests |
+| Web 非真实集成 smoke | 同 Phase 5 命令 | PASS：2 files / 2 tests |
+| E2E | `pnpm test:e2e` | PASS：8 Playwright tests |
+| Lint / Build | `pnpm lint` / `pnpm build` | PASS |
+| Diff whitespace | `git diff --check` | PASS |
+| DB migration drift | `pnpm db:generate` | PASS：No schema changes |
+| No-mock 生产审计 | `grep -rn "generate_mock_candidates\|MOCK_CANDIDATES\|mock_ai" services/worker/clipwise_worker apps/web/app apps/web/lib` | PASS：源码无引用；`mock_ai.py` 已删除（清理了残留 .pyc） |
+
+### 真实 8 分钟视频端到端
+
+状态：⏳ 待用户处理 Groq key 后执行。流程：浏览器上传 `/Users/chk/Downloads/飞书20260623-131141.mp4` → ffmpeg.wasm 抽音 → Groq ASR → DeepSeek 召回管线 → 验证候选数自然（≤30）、每条带 recommendation/topicLabel/editingNote/boundaryReason/needsSetup/rejectionReason、`highlight_window_scores` 行数等于被评分窗口数、无原片上传服务器。
+
+### 已知缺口
+
+- Phase 4.1 长视频完整分片仍待单独加强。
+- Phase 6.1 本地 30 个 MP4/SRT/TXT 导出尚未实现。
+- 人工标注留出集（`datasets/editor-recall-labels/`）已建脚手架，仅 2 条示例，后续扩充用于召回率校准。
