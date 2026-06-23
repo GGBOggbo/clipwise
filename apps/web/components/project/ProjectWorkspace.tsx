@@ -106,6 +106,8 @@ export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
 
           <EditorTabs
             candidate={candidate}
+            candidates={workspace.candidates}
+            file={localFile}
             videoConnected={Boolean(localFile)}
             onCandidateChange={changeCandidate}
             onRequestPreview={() => {

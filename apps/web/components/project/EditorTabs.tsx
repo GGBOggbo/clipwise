@@ -11,6 +11,8 @@ type EditorTab = "copy" | "subtitle" | "export";
 
 type EditorTabsProps = {
   candidate: ClipCandidate | null;
+  candidates: ClipCandidate[];
+  file: File | null;
   videoConnected: boolean;
   onCandidateChange: (candidate: ClipCandidate) => void;
   onRequestPreview: () => void;
@@ -39,6 +41,8 @@ function SaveIndicator({ status }: { status: SaveStatus }) {
 
 export function EditorTabs({
   candidate,
+  candidates,
+  file,
   videoConnected,
   onCandidateChange,
   onRequestPreview,
@@ -180,6 +184,8 @@ export function EditorTabs({
         {candidate && tab === "export" && (
           <ExportPanel
             candidate={candidate}
+            candidates={candidates}
+            file={file}
             videoConnected={videoConnected}
             onRequestPreview={onRequestPreview}
           />

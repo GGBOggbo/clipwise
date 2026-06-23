@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act, waitFor } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import type { ClipCandidate } from "@clipwise/shared";
 
 // mock ffmpeg 切片：返回可识别的假 mp4
-const mockSlice = vi.fn(async (_f: File, _s: number, _e: number) =>
+const mockSlice = vi.fn(async () =>
   new Blob([new Uint8Array([1, 2, 3])], { type: "video/mp4" }),
 );
 vi.mock("@/lib/ffmpeg", () => ({
-  sliceVideoClip: (f: File, s: number, e: number) => mockSlice(f, s, e),
+  sliceVideoClip: () => mockSlice(),
 }));
 
 // 捕获 createObjectURL 下载（setup.ts 里已 polyfill 成固定字符串）
