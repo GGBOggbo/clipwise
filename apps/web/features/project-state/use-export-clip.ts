@@ -53,8 +53,8 @@ async function toBytes(data: Blob | string): Promise<Uint8Array> {
 /**
  * 管理本地快速导出的状态机 hook。
  *
- * - exportSingle：切当前片段 MP4 + 生成 SRT/TXT，3 个文件分别下载。
- * - exportBatch：串行切 TOP N，打包成单个 ZIP 下载（避免内存爆）。
+ * - exportSingle：切当前片段 MP4 + 生成 SRT/TXT，打成单个 ZIP 下载。
+ * - exportBatch：串行切 TOP N，每个片段的 mp4/srt/txt 打成一个 ZIP 下载。
  * 原视频全程在浏览器本地，不上传服务器。
  */
 export function useExportClip() {
@@ -75,13 +75,29 @@ export function useExportClip() {
         const mp4 = await sliceVideoClip(file, candidate.startMs, candidate.endMs);
         const srt = buildSrtContent(candidate.subtitles, candidate.startMs);
         const txt = buildTxtContent(candidate);
-        const base = buildClipFileName(candidate.rank, candidate.selectedTitle, "");
-        const stem = base.slice(0, -1); // 去掉末尾的点
+        const stem = buildClipFileName(
+          candidate.rank,
+          candidate.selectedTitle,
+          "",
+        ).slice(0, -1); // 去末尾点
+
+        const entries: Record<string, Uint8Array> = {
+          [`${stem}mp4`]: await toBytes(mp4),
+          [`${stem}txt`]: await toBytes(txt),
+        };
+        if (srt) entries[`${stem}srt`] = await toBytes(srt);
 
         setProgress({ status: "packaging", current: 1, total: 1 });
-        downloadBlob(mp4, `${stem}mp4`);
-        if (srt) downloadBlob(new Blob([srt], { type: "text/plain" }), `${stem}srt`);
-        downloadBlob(new Blob([txt], { type: "text/plain" }), `${stem}txt`);
+        const zipBytes = await new Promise<Uint8Array>((resolve, reject) => {
+          zip(entries, (err, data) => {
+            if (err) reject(err);
+            else resolve(data);
+          });
+        });
+        downloadBlob(
+          new Blob([zipBytes.buffer as ArrayBuffer], { type: "application/zip" }),
+          `${stem}zip`,
+        );
         setProgress({ status: "done", current: 1, total: 1 });
       } catch (err) {
         console.error("导出失败", err);

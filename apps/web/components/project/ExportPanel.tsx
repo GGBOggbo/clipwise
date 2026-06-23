@@ -90,7 +90,7 @@ export function ExportPanel({
 
       <section>
         <h3>快速导出当前片段</h3>
-        <p>MP4 + SRT + TXT，在浏览器本地生成，原视频不上传。</p>
+        <p>MP4 + SRT + TXT 打包为 ZIP，在浏览器本地生成，原视频不上传。</p>
         <button
           type="button"
           disabled={!videoConnected || busy}
