@@ -201,21 +201,75 @@ DeepSeek 分批接收窗口，返回：
 - `index` 按时间顺序连续排列。
 - 候选边界必须与第一条和最后一条字幕边界一致。
 
-## 5. DeepSeek 客户端
+## 5. 结构化输出策略
+
+结构化输出采用分层防线：
+
+```text
+供应商原生 strict schema
+→ SDK 参数解析
+→ Pydantic 数据结构校验
+→ Clipwise 业务不变量校验
+→ 有界重试
+```
+
+各层职责：
+
+1. DeepSeek strict function calling 约束字段、类型、枚举和嵌套结构。
+2. Pydantic 拒绝缺字段、额外字段、错误类型和非法枚举。
+3. 业务校验拒绝 schema 无法完整表达的错误，例如未知窗口 ID、重复 ID、漏项、非法边界和金句不可溯源。
+4. 任一层失败都进入当前批次重试；重试耗尽后任务失败。
+
+提示词仍需说明任务目标和字段语义，但“只输出 JSON”“不要 Markdown”等文字只作为辅助，不承担正确性保证。
+
+不同供应商的 Structured Outputs 参数并不通用，因此客户端必须显式选择供应商支持的最强能力：
+
+- DeepSeek：使用 Beta strict function calling。
+- 支持原生 JSON Schema response format 的供应商：优先使用 strict structured response。
+- 仅支持 JSON mode 的兼容供应商：必须显式配置兼容模式，并继续执行完整的 Pydantic、业务校验和重试。
+- 仅靠普通文本提示的供应商：Phase 5 不支持。
+
+Clipwise 不在 strict 请求失败后静默降级到普通 JSON mode。是否启用兼容模式必须由环境配置明确决定，避免运行时可靠性悄悄下降。
+
+## 6. DeepSeek 客户端
 
 Worker 使用 DeepSeek 官方 OpenAI 兼容接口。
 
 默认配置：
 
 ```text
-DEEPSEEK_API_BASE=https://api.deepseek.com
+DEEPSEEK_API_BASE=https://api.deepseek.com/beta
 DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_OUTPUT_MODE=strict_tool
 思考模式：disabled
-response_format：json_object
 请求参数：extra_body={"thinking": {"type": "disabled"}}
 ```
 
-截至 2026-06-23，DeepSeek 官方 API 支持 `deepseek-v4-flash`、非思考模式和 JSON Output。模型名始终来自环境变量，以便后续切换。
+截至 2026-06-23，DeepSeek 官方 API 的 Beta endpoint 支持 strict function calling：所有 function 设置 `strict: true`，服务端按其支持的 JSON Schema 子集校验工具参数。strict 模式支持思考和非思考模式。
+
+每类请求定义一个只用于承载结构化结果的函数：
+
+```text
+submit_window_scores
+submit_candidate_selection
+submit_candidate_details
+```
+
+请求使用指定函数的 `tool_choice`，禁止模型返回普通自然语言作为成功结果。成功响应必须满足：
+
+- `finish_reason` 为 `tool_calls`。
+- 只调用当前请求指定的函数。
+- 恰好返回一次函数调用。
+- `arguments` 可由对应 Pydantic 模型解析。
+
+DeepSeek strict schema 遵守官方约束：
+
+- 每个 object 的全部 properties 都列入 `required`。
+- 每个 object 设置 `additionalProperties: false`。
+- 仅使用官方 strict 模式支持的 JSON Schema 类型和约束。
+- 可空字段使用 `anyOf` 表达，不使用可选且缺失的字段。
+
+模型名、base URL 和输出模式始终来自环境变量。
 
 客户端接口按职责拆分：
 
@@ -234,7 +288,13 @@ class DeepSeekClient:
 
 具体实现使用 `openai` Python SDK，业务管线依赖上述接口，不直接构造 SDK 请求。测试通过注入受控客户端验证真实业务规则。
 
-## 6. JSON 校验与重试
+### 6.1 Pydantic 契约
+
+每类响应使用独立 Pydantic 模型，并统一配置 `extra="forbid"`。Pydantic 负责结构验证，独立 validator 负责跨条目和数据库相关的不变量。
+
+不能为了接受模型错误而自动补默认值、丢弃未知字段，或隐式转换窗口 ID、segment ID 等核心标识。
+
+## 7. JSON 校验与重试
 
 所有模型响应必须经过显式的数据结构校验，不能依靠字典的宽松访问继续执行。
 
@@ -243,8 +303,11 @@ class DeepSeekClient:
 - 网络错误或请求超时。
 - HTTP 429。
 - HTTP 5xx。
+- 未返回指定 tool call。
+- 返回多个或错误名称的 tool call。
+- tool arguments 解析失败。
 - 空响应。
-- JSON 解析失败。
+- JSON 参数解析失败。
 - 响应被截断。
 - 缺失字段或字段类型错误。
 - 未知、重复或缺失 ID。
@@ -256,13 +319,14 @@ class DeepSeekClient:
 不重试的情况：
 
 - API key 未配置。
+- strict schema 本身被 DeepSeek 服务端拒绝。
 - 项目没有 transcript。
 - 数据库事务失败。
 - 应用内部不变量被破坏。
 
 每个批次独立重试；已经成功的评分批次无需因另一个批次的临时失败而再次请求。
 
-## 7. 数据库写入与原子性
+## 8. 数据库写入与原子性
 
 整个候选集合先在内存中完成并通过校验，最后才写数据库。
 
@@ -285,7 +349,7 @@ class DeepSeekClient:
 
 候选 ID 使用项目 token 与新 UUID 组合，避免全局主键冲突。
 
-## 8. 任务状态与错误处理
+## 9. 任务状态与错误处理
 
 候选生成任务采用真实进度：
 
@@ -324,7 +388,7 @@ candidate_persist_failed
 
 前端继续使用既有 SSE 和轮询机制展示任务失败。Phase 5 只补充稳定错误码和正确的 project 状态，不扩展新的重试 UI。
 
-## 9. 生产 Mock 清理
+## 10. 生产 Mock 清理
 
 完成 Phase 5 后：
 
@@ -334,11 +398,11 @@ candidate_persist_failed
 - 保留 `packages/shared` 的 demo fixture，仅用于种子项目和前端组件测试，不得进入真实 Worker 任务。
 - 集成测试创建的新项目必须通过真实候选管线或注入测试 DeepSeek 服务，不能断言固定七个候选。
 
-## 10. 测试策略
+## 11. 测试策略
 
 严格按测试驱动开发执行。
 
-### 10.1 纯函数测试
+### 11.1 纯函数测试
 
 - 空 transcript 不生成窗口。
 - 窗口对齐完整 segment。
@@ -350,15 +414,18 @@ candidate_persist_failed
 - 边界建议只能映射到真实 segment。
 - quote 必须来自候选原文。
 
-### 10.2 DeepSeek 客户端测试
+### 11.2 DeepSeek 客户端测试
 
 - 请求使用配置的 base URL 和 model。
-- 请求启用非思考模式与 JSON Output。
+- 请求启用非思考模式、指定 tool choice 和 strict function schema。
+- strict schema 满足全部字段 required、`additionalProperties: false` 等官方约束。
+- 缺失 tool call、多 tool call、错误函数名和非法 arguments 均失败。
+- Pydantic 拒绝额外字段和错误类型。
 - 评分、语义去重和详情响应均经过严格校验。
 - 429、5xx、空响应和非法 JSON 最多重试三次。
 - 永久失败返回稳定异常，不返回空候选或模拟候选。
 
-### 10.3 数据库与 Pipeline 测试
+### 11.3 数据库与 Pipeline 测试
 
 - 初次生成将真实结果写入候选与字幕表。
 - 字幕文本和时间来自 transcript。
@@ -368,7 +435,7 @@ candidate_persist_failed
 - `generate_candidates` 和 `regenerate_candidates` 都不调用 ASR。
 - 生产代码不存在 mock candidate 路径。
 
-### 10.4 集成与真实验收
+### 11.4 集成与真实验收
 
 自动集成测试使用注入的 DeepSeek 测试客户端，验证完整数据库与任务状态，不消耗真实 API。
 
@@ -390,11 +457,12 @@ candidate_persist_failed
 - 候选之间没有明显重复。
 - 字幕来自真实 transcript。
 
-## 11. 验收标准
+## 12. 验收标准
 
 Phase 5 只有同时满足以下条件才算完成：
 
 - Worker 生产代码不再包含固定候选生成路径。
+- DeepSeek 输出通过 strict tool schema、Pydantic 和业务不变量三层校验。
 - 真实 transcript 可以生成 1–10 个真实候选。
 - 评分、边界、标题、摘要、金句和风险提示均通过数据契约校验。
 - 字幕和金句可追溯至原始 transcript。
@@ -402,7 +470,7 @@ Phase 5 只有同时满足以下条件才算完成：
 - 自动测试、Worker 测试、Web 回归测试、lint 和构建通过。
 - 使用真实 DeepSeek key 完成一次端到端验收。
 
-## 12. 明确不做
+## 13. 明确不做
 
 - 不修复 Phase 4 只处理前 20 分钟的问题；它应作为独立的 Phase 4.1 修复，避免扩大本阶段范围。
 - 不实现导出文件。
@@ -412,7 +480,7 @@ Phase 5 只有同时满足以下条件才算完成：
 - 不做账号、权限或多人协作。
 - 不把 DeepSeek key 暴露给 Next.js 客户端。
 
-## 13. 参考
+## 14. 参考
 
 - 项目总设计：`docs/superpowers/specs/2026-06-22-clipwise-mvp-design.md`
 - 产品规格：`references/直播回放智能切片工具_SPEC_v0.2.md`
@@ -420,4 +488,7 @@ Phase 5 只有同时满足以下条件才算完成：
 - DeepSeek 官方文档：
   - `https://api-docs.deepseek.com/`
   - `https://api-docs.deepseek.com/guides/json_mode`
+  - `https://api-docs.deepseek.com/guides/tool_calls`
   - `https://api-docs.deepseek.com/api/create-chat-completion`
+- OpenAI Structured Outputs 原则参考：
+  - `https://developers.openai.com/api/docs/guides/structured-outputs`
