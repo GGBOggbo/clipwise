@@ -34,17 +34,31 @@ class GroqTranscriber:
 
         segments: list[dict[str, Any]] = []
         for seg in response.segments:
-            raw_words = getattr(seg, "words", None) or []
-            words = [
-                {"word": w.word, "start": w.start, "end": w.end}
-                for w in raw_words
-            ]
+            # Groq SDK 返回的 segment 可能是 dict 或对象，统一用 dict 访问
+            seg_dict = seg if isinstance(seg, dict) else {
+                "id": getattr(seg, "id", None),
+                "start": getattr(seg, "start", None),
+                "end": getattr(seg, "end", None),
+                "text": getattr(seg, "text", ""),
+                "words": getattr(seg, "words", None) or [],
+            }
+            raw_words = seg_dict.get("words") or []
+            words = []
+            for w in raw_words:
+                w_dict = w if isinstance(w, dict) else {
+                    "word": getattr(w, "word", ""),
+                    "start": getattr(w, "start", 0.0),
+                    "end": getattr(w, "end", 0.0),
+                }
+                words.append(
+                    {"word": w_dict["word"], "start": w_dict["start"], "end": w_dict["end"]}
+                )
             segments.append(
                 {
-                    "id": seg.id,
-                    "start": seg.start,
-                    "end": seg.end,
-                    "text": seg.text.strip(),
+                    "id": seg_dict.get("id"),
+                    "start": seg_dict["start"],
+                    "end": seg_dict["end"],
+                    "text": seg_dict["text"].strip(),
                     "words": words,
                 }
             )
