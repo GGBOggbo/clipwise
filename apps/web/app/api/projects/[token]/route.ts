@@ -1,37 +1,15 @@
 import { NextResponse } from "next/server";
-import { eq, inArray } from "drizzle-orm";
-import { db, schema } from "@/db/client";
-import { mapRowToProject } from "@/features/project-mapping";
+import { getProjectByToken } from "@/lib/project-lookup";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
-
-  const [project] = await db
-    .select()
-    .from(schema.projects)
-    .where(eq(schema.projects.token, token));
+  const project = await getProjectByToken(token);
   if (!project) {
     return NextResponse.json({ error: "project_not_found" }, { status: 404 });
   }
 
-  const candidates = await db
-    .select()
-    .from(schema.clipCandidates)
-    .where(eq(schema.clipCandidates.projectToken, token));
-
-  const candidateIds = candidates.map((c) => c.id);
-  const subtitleRows =
-    candidateIds.length === 0
-      ? []
-      : await db
-          .select()
-          .from(schema.subtitleLines)
-          .where(inArray(schema.subtitleLines.candidateId, candidateIds));
-
-  return NextResponse.json(
-    mapRowToProject({ project, candidates, subtitles: subtitleRows }),
-  );
+  return NextResponse.json(project);
 }

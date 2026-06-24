@@ -1,8 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { ProjectWorkspace } from "@/components/project/ProjectWorkspace";
-import { ApiProjectProvider } from "@/lib/api-project-provider";
+import { getProjectByToken } from "@/lib/project-lookup";
 import { findLatestTaskIdByProjectToken } from "@/lib/task-lookup";
-import type { ClipwiseProject } from "@clipwise/shared";
 
 export default async function ProjectPage({
   params,
@@ -10,12 +9,9 @@ export default async function ProjectPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const provider = new ApiProjectProvider();
-  let project: ClipwiseProject;
-
-  try {
-    project = await provider.getProject(token);
-  } catch {
+  // 直接查库而非 HTTP fetch 自身路由：避免硬编码端口导致跨端口 404。
+  const project = await getProjectByToken(token);
+  if (!project) {
     notFound();
   }
 

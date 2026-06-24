@@ -83,9 +83,13 @@ export async function GET(
         return;
       }
 
-      // 每秒轮询直到终态
-      while (true) {
+      // 每秒轮询直到终态；客户端断连时退出，避免连接泄漏
+      while (!request.signal.aborted) {
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        if (request.signal.aborted) {
+          controller.close();
+          return;
+        }
         const job = await readJob(taskId);
         if (!job) {
           controller.close();
@@ -97,6 +101,7 @@ export async function GET(
           return;
         }
       }
+      controller.close();
     },
   });
 

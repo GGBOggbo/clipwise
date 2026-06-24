@@ -64,10 +64,12 @@ DEEPSEEK_API_KEY=...
 
 不要提交真实 `.env` 文件。
 
-### 4. 启动 Web
+### 4. 启动 Web + Worker
+
+一条命令同时启动前端和后台 Worker（推荐）：
 
 ```bash
-pnpm dev
+pnpm dev:all
 ```
 
 默认访问：
@@ -76,15 +78,23 @@ pnpm dev
 http://localhost:3000
 ```
 
-### 5. 启动 Worker
-
-上传视频后，必须另开一个终端启动 Worker，否则任务会停在“等待开始 / 0%”。
+如果只做前端开发，也可以单独启动 Web：
 
 ```bash
-cd services/worker
-uv sync
-uv run python -m clipwise_worker.main
+pnpm dev
 ```
+
+此时上传视频后任务会停在"等待开始 / 0%"，需要另起 Worker：
+
+```bash
+pnpm worker:run
+```
+
+> **端口冲突**：若 3000 被占用，Next 会自动改用 3001。Web 内部已不依赖固定端口（服务端直接查库），任意端口均可正常工作。
+
+### 5. 已知扩展瓶颈
+
+- **任务进度推送是数据库轮询**：SSE 端点（`/api/tasks/[taskId]/events`）每秒查一次 jobs 表，而非 Postgres 原生的 `LISTEN/NOTIFY`。单机 MVP 足够，但并发任务多时是 N×QPS 的恒定 DB 压力。中期可改用 `pg_notify` 推送 + 轮询兜底。
 
 ## 常用命令
 
@@ -101,7 +111,8 @@ Clipwise 的设计目标是本地优先：
 
 - 原始视频文件留在用户浏览器本地。
 - 服务端只接收压缩音频和生成后的分析结果。
-- ASR 成功后，Worker 会清理临时音频文件。
+- ASR 成功或失败后，Worker 都会清理临时音频文件。
+- 项目数据（候选、字幕、转写）按 `expires_at` 定期清理（Worker 每 30 分钟扫描一次过期项目）。
 
 ## 当前状态
 

@@ -1,4 +1,6 @@
 import { notFound, redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
+import { db, schema } from "@/db/client";
 import { TaskProgressClient } from "@/components/project/TaskProgressClient";
 
 type Props = {
@@ -7,20 +9,19 @@ type Props = {
 
 export default async function TaskPage({ params }: Props) {
   const { token, taskId } = await params;
-  const base = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:3000";
 
-  const resp = await fetch(`${base}/api/tasks/${taskId}`, {
-    cache: "no-store",
-  });
-  if (!resp.ok) {
+  // 直接查库而非 HTTP fetch 自身路由：避免硬编码端口导致跨端口 404，
+  // 也省一次 localhost 往返。客户端轮询仍走 /api/tasks。
+  const [job] = await db
+    .select({ status: schema.jobs.status })
+    .from(schema.jobs)
+    .where(eq(schema.jobs.taskId, taskId));
+  if (!job) {
     notFound();
   }
-  const task = (await resp.json()) as {
-    status: "pending" | "running" | "succeeded" | "failed";
-  };
 
   // 任务已完成，直接跳项目页（项目此时已 ready）
-  if (task.status === "succeeded") {
+  if (job.status === "succeeded") {
     redirect(`/project/${token}`);
   }
 
