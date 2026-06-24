@@ -17,6 +17,20 @@ export type ExportState =
   | "done"
   | "failed";
 
+const EXPORT_API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
+
+/**
+ * 标记候选已导出（导出漏斗埋点）。fire-and-forget，不阻塞 UI，失败静默。
+ */
+function markExported(projectToken: string, candidateId: string): void {
+  void fetch(
+    `${EXPORT_API_BASE}/api/projects/${projectToken}/candidates/${candidateId}/export`,
+    { method: "POST" },
+  ).catch(() => {
+    // 埋点失败不影响导出
+  });
+}
+
 export type ExportProgress = {
   status: ExportState;
   /** 当前正在处理第几个（1-based），批量导出用 */
@@ -67,7 +81,11 @@ export function useExportClip() {
   const busyRef = useRef(false);
 
   const exportSingle = useCallback(
-    async (candidate: ClipCandidate, file: File): Promise<void> => {
+    async (
+      candidate: ClipCandidate,
+      file: File,
+      projectToken?: string,
+    ): Promise<void> => {
       if (busyRef.current) return;
       busyRef.current = true;
       setProgress({ status: "slicing", current: 1, total: 1 });
@@ -95,6 +113,7 @@ export function useExportClip() {
           `${stem}.zip`,
         );
         setProgress({ status: "done", current: 1, total: 1 });
+        if (projectToken) markExported(projectToken, candidate.id);
       } catch (err) {
         console.error("导出失败", err);
         setProgress({ status: "failed", current: 0, total: 0 });
@@ -106,7 +125,11 @@ export function useExportClip() {
   );
 
   const exportBatch = useCallback(
-    async (candidates: ClipCandidate[], file: File): Promise<void> => {
+    async (
+      candidates: ClipCandidate[],
+      file: File,
+      projectToken?: string,
+    ): Promise<void> => {
       if (busyRef.current) return;
       busyRef.current = true;
       const total = candidates.length;
@@ -137,6 +160,11 @@ export function useExportClip() {
           "clipwise-export.zip",
         );
         setProgress({ status: "done", current: total, total });
+        if (projectToken) {
+          for (const candidate of candidates) {
+            markExported(projectToken, candidate.id);
+          }
+        }
       } catch (err) {
         console.error("批量导出失败", err);
         setProgress({ status: "failed", current: 0, total: 0 });

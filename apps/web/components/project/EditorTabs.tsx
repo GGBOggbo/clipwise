@@ -204,6 +204,7 @@ export function EditorTabs({
             file={file}
             videoConnected={videoConnected}
             onRequestPreview={onRequestPreview}
+            projectToken={token}
           />
         )}
       </div>

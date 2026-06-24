@@ -22,6 +22,7 @@ function makeCandidate(
     riskNotices: [],
     subtitles: [],
     previewStatus: "not_previewed",
+    exportedAt: null,
     recommendation: "recommended",
     topicLabel: "AI 项目报价",
     editingNote: "可直接粗剪。",

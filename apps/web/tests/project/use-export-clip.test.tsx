@@ -37,6 +37,7 @@ function makeCandidate(rank: number): ClipCandidate {
       },
     ],
     previewStatus: "not_previewed",
+    exportedAt: null,
     recommendation: "recommended",
     topicLabel: "主题",
     editingNote: "",

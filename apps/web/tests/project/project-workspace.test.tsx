@@ -51,9 +51,7 @@ describe("ProjectWorkspace", () => {
       </DesktopViewportGuard>,
     );
 
-    expect(
-      screen.getByText("请使用桌面端 Chrome / Edge"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("请在电脑上打开")).toBeInTheDocument();
   });
 
   it("失败项目没有可恢复中间产物时展示重新上传提示", async () => {

@@ -125,6 +125,8 @@ export const clipCandidates = pgTable("clip_candidates", {
   previewStatus: previewStatusEnum("preview_status")
     .notNull()
     .default("not_previewed"),
+  // 导出漏斗：记录候选被导出的时间，用于判断推荐质量（TOP5 是否真被用）
+  exportedAt: timestamp("exported_at", { withTimezone: true }),
 });
 
 export const subtitleLines = pgTable("subtitle_lines", {

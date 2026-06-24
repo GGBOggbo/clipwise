@@ -75,6 +75,8 @@ export type ClipCandidate = {
   riskNotices: string[];
   subtitles: SubtitleLine[];
   previewStatus: PreviewStatus;
+  /** 导出漏斗：被导出的时间戳（null = 未导出），用于判断推荐质量 */
+  exportedAt: string | null;
   // Phase 5.1 editor recall：模型推荐档位与剪辑师可读字段
   recommendation: Recommendation;
   topicLabel: string;

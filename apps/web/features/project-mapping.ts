@@ -31,6 +31,7 @@ type CandidateRow = {
   recommendationReason: string;
   riskNotices: string[];
   previewStatus: ClipCandidate["previewStatus"];
+  exportedAt: Date | null;
   // Drizzle text() 列返回 string；worker 永远从严格枚举写入合法值，返回时再窄化
   recommendation: string;
   topicLabel: string;
@@ -84,6 +85,7 @@ export function mapRowToProject(args: {
       riskNotices: c.riskNotices,
       subtitles: candidateSubtitles,
       previewStatus: c.previewStatus,
+      exportedAt: c.exportedAt ? c.exportedAt.toISOString() : null,
       recommendation: c.recommendation as ClipCandidate["recommendation"],
       topicLabel: c.topicLabel,
       editingNote: c.editingNote,

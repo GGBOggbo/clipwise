@@ -80,8 +80,17 @@ export function CandidateList({
         <button type="button" onClick={onToggleShowAll}>
           {showAll ? "收起多余候选" : "查看更多候选"}
         </button>
-        <button type="button" onClick={onRegenerate} disabled={!canRegenerate}>
-          重新生成候选
+        <button
+          type="button"
+          onClick={onRegenerate}
+          disabled={!canRegenerate}
+          title={
+            canRegenerate
+              ? "重新调用 AI 生成候选（仅可使用一次）"
+              : "已使用过重新生成，无法再次操作"
+          }
+        >
+          {canRegenerate ? "重新生成候选（仅一次）" : "已重新生成过"}
         </button>
       </div>
     </aside>
