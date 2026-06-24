@@ -19,3 +19,15 @@ services/worker/__pycache__/
 **/__pycache__/
 *.pyc
 outputs/
+
+# Local planning / reference material
+docs/
+references/
+datasets/editor-recall-labels/
+task_plan.md
+findings.md
+progress.md
+apps/web/AGENTS.md
+apps/web/CLAUDE.md
+apps/web/README.md
+services/worker/README.md
