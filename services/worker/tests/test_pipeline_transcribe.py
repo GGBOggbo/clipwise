@@ -120,9 +120,14 @@ async def test_transcribe_job_fails_when_no_audio(db, worker_config):
             "SELECT status, error_code FROM jobs WHERE task_id = $1",
             task_id,
         )
+        project_status = await conn.fetchval(
+            "SELECT status FROM projects WHERE token = $1",
+            project_token,
+        )
 
     assert job["status"] == "failed"
     assert job["error_code"] == "no_audio"
+    assert project_status == "failed"
 
     async with db.pool.acquire() as conn:
         await conn.execute("DELETE FROM projects WHERE token = $1", project_token)
@@ -175,9 +180,14 @@ async def test_transcribe_job_fails_on_groq_error(db, worker_config):
             "SELECT status, error_code FROM jobs WHERE task_id = $1",
             task_id,
         )
+        project_status = await conn.fetchval(
+            "SELECT status FROM projects WHERE token = $1",
+            project_token,
+        )
 
     assert job["status"] == "failed"
     assert job["error_code"] == "asr_chunk_failed"
+    assert project_status == "failed"
 
     async with db.pool.acquire() as conn:
         await conn.execute("DELETE FROM projects WHERE token = $1", project_token)

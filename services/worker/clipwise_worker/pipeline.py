@@ -75,6 +75,14 @@ async def delete_audio_files(database: Database, project_token: str) -> None:
         )
 
 
+async def mark_project_failed(database: Database, project_token: str) -> None:
+    async with database.pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE projects SET status = 'failed', updated_at = NOW() WHERE token = $1",
+            project_token,
+        )
+
+
 class Pipeline:
     def __init__(
         self,
@@ -133,6 +141,7 @@ class Pipeline:
         # 1. 读音频块
         audio_chunks = await read_project_audio_files(self._db, project_token)
         if not audio_chunks:
+            await mark_project_failed(self._db, project_token)
             await self._repo.mark_failed(task_id, "no_audio", "未找到音频文件")
             return
 
@@ -153,6 +162,7 @@ class Pipeline:
                 await self._repo.update_progress(task_id, progress, "正在识别语音")
             except Exception as exc:
                 logger.exception("ASR 分块 %d 失败", i)
+                await mark_project_failed(self._db, project_token)
                 await self._repo.mark_failed(
                     task_id, "asr_chunk_failed", "语音识别失败，请重试"
                 )

@@ -21,6 +21,7 @@ from .highlight_models import (
     WindowScore,
     build_strict_tool_schema,
 )
+from .highlight_windows import quote_is_verbatim
 
 
 ResponseModel = TypeVar("ResponseModel", bound=StrictModel)
@@ -251,31 +252,52 @@ class DeepSeekClient:
         for start in range(0, len(candidates), 5):
             batch = candidates[start : start + 5]
             expected_ids = [candidate.window_id for candidate in batch]
-            response = self._call_strict_tool(
-                function_name="submit_candidate_details",
-                description="提交最终高光候选的标题、摘要、原文金句、剪辑建议和风险提示",
-                response_model=DetailBatchResponse,
-                system_prompt=(
-                    "为每个最终剪辑素材生成三个忠于原文的中文标题、摘要、逐字原文金句、"
-                    "剪辑师 editingNote 和风险提示。quote 必须是输入 text 中连续出现的原文，"
-                    "不得润色、拼接或添加信息。editingNote 是给剪辑师的处理建议，"
-                    "不得伪造 transcript 中不存在的事实。不得遗漏或增加 ID。"
-                ),
-                payload={
-                    "candidates": [
-                        {
-                            "windowId": candidate.window_id,
-                            "type": candidate.type,
-                            "finalScore": candidate.final_score,
-                            "text": candidate.text,
-                        }
-                        for candidate in batch
-                    ]
-                },
-            )
-            self._validate_exact_ids(
-                expected_ids,
-                [item.window_id for item in response.items],
-            )
-            results.extend(response.items)
+            for attempt in range(3):
+                response = self._call_strict_tool(
+                    function_name="submit_candidate_details",
+                    description="提交最终高光候选的标题、摘要、原文金句、剪辑建议和风险提示",
+                    response_model=DetailBatchResponse,
+                    system_prompt=(
+                        "为每个最终剪辑素材生成三个忠于原文的中文标题、摘要、逐字原文金句、"
+                        "剪辑师 editingNote 和风险提示。quote 必须是输入 text 中连续出现的原文，"
+                        "不得润色、拼接或添加信息。editingNote 是给剪辑师的处理建议，"
+                        "不得伪造 transcript 中不存在的事实。不得遗漏或增加 ID。"
+                    ),
+                    payload={
+                        "candidates": [
+                            {
+                                "windowId": candidate.window_id,
+                                "type": candidate.type,
+                                "finalScore": candidate.final_score,
+                                "text": candidate.text,
+                            }
+                            for candidate in batch
+                        ]
+                    },
+                )
+                self._validate_exact_ids(
+                    expected_ids,
+                    [item.window_id for item in response.items],
+                )
+                inputs_by_id = {
+                    candidate.window_id: candidate for candidate in batch
+                }
+                details_are_valid = all(
+                    item.summary.strip()
+                    and quote_is_verbatim(
+                        item.quote,
+                        inputs_by_id[item.window_id].text,
+                    )
+                    for item in response.items
+                )
+                if details_are_valid:
+                    results.extend(response.items)
+                    break
+                if attempt == 2:
+                    raise DeepSeekError(
+                        "deepseek_invalid_response",
+                        retryable=False,
+                        message="候选详情包含空摘要或非原文金句",
+                    )
+                self._sleeper(2**attempt)
         return results

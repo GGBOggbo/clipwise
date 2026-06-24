@@ -163,9 +163,10 @@ class HighlightPipeline:
         for decision in decisions:
             if decision.keep:
                 if decision.duplicate_of is not None:
-                    raise HighlightGenerationError(
-                        "deepseek_invalid_response",
-                        "保留候选不能指向重复项",
+                    normalized_decisions[decision.window_id] = decision.model_copy(
+                        update={
+                            "duplicate_of": None,
+                        }
                     )
                 continue
             if decision.duplicate_of not in kept_ids:
@@ -265,7 +266,11 @@ class HighlightPipeline:
             kept = self._validate_selection(recall_pool, decisions)
             segments_by_id = {segment.id: segment for segment in segments}
             bounded = [
-                apply_boundary_decision(candidate, decision, segments_by_id)
+                self._apply_boundary_or_fallback(
+                    candidate,
+                    decision,
+                    segments_by_id,
+                )
                 for candidate, decision in kept
             ]
             diverse, diversity_audits = diversify_by_topic(
@@ -348,6 +353,24 @@ class HighlightPipeline:
                 exc.code,
                 "AI 分析失败，请重试",
             ) from exc
+
+    @staticmethod
+    def _apply_boundary_or_fallback(
+        candidate: ScoredWindow,
+        decision: BoundaryDecision,
+        segments_by_id: dict[str, TranscriptSegment],
+    ) -> FinalCandidateInput:
+        try:
+            return apply_boundary_decision(candidate, decision, segments_by_id)
+        except ValueError:
+            fallback = decision.model_copy(
+                update={
+                    "start_segment_id": candidate.window.segment_ids[0],
+                    "end_segment_id": candidate.window.segment_ids[-1],
+                    "boundary_reason": "模型边界无效，回退到原始候选窗口",
+                }
+            )
+            return apply_boundary_decision(candidate, fallback, segments_by_id)
 
     @staticmethod
     def _candidate_input_to_scored(

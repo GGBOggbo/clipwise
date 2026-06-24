@@ -5,7 +5,11 @@ import pytest
 
 from clipwise_worker.config import WorkerConfig
 from clipwise_worker.deepseek import DeepSeekClient, DeepSeekError
-from clipwise_worker.highlight_models import CandidateWindow
+from clipwise_worker.highlight_models import (
+    CandidateWindow,
+    FinalCandidateInput,
+    ScoreDimensions,
+)
 
 
 def test_worker_config_reads_deepseek_settings(monkeypatch):
@@ -129,6 +133,74 @@ def valid_score_payload():
             }
         ]
     }
+
+
+def final_candidate_inputs():
+    return [
+        FinalCandidateInput(
+            window_id="window-0001",
+            recommendation="recommended",
+            final_score=88,
+            dimensions=ScoreDimensions(
+                informationDensity=4,
+                hookStrength=3,
+                standaloneClarity=4,
+                editability=4,
+            ),
+            type="观点",
+            rejection_reason="none",
+            topic_label="AI 项目",
+            recommendation_reason="观点完整，可独立传播",
+            start_ms=0,
+            end_ms=90_000,
+            segment_ids=["segment-1", "segment-2"],
+            text="第一个完整观点，可以直接作为原文金句。",
+        )
+    ]
+
+
+def detail_payload(*, quote: str):
+    return {
+        "items": [
+            {
+                "windowId": "window-0001",
+                "titleOptions": ["标题一", "标题二", "标题三"],
+                "summary": "摘要",
+                "quote": quote,
+                "editingNote": "保留开头观点。",
+                "riskNotices": [],
+            }
+        ]
+    }
+
+
+def test_candidate_details_retries_batch_when_quote_is_not_verbatim():
+    sdk = FakeSdk(
+        [
+            completion(
+                detail_payload(quote="模型润色后的金句"),
+                name="submit_candidate_details",
+            ),
+            completion(
+                detail_payload(quote="第一个完整观点"),
+                name="submit_candidate_details",
+            ),
+        ]
+    )
+    sleeps = []
+    client = DeepSeekClient(
+        api_key="key",
+        base_url="https://api.deepseek.com/beta",
+        model="deepseek-v4-flash",
+        sdk_client=sdk,
+        sleeper=sleeps.append,
+    )
+
+    result = client.generate_candidate_details(final_candidate_inputs())
+
+    assert result[0].quote == "第一个完整观点"
+    assert len(sdk.completions.calls) == 2
+    assert sleeps == [1]
 
 
 def test_score_windows_forces_named_strict_tool_and_non_thinking_mode():

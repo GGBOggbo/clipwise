@@ -200,6 +200,45 @@ class MissingDuplicateTargetDeepSeekClient(InvertedDuplicateDeepSeekClient):
         ]
 
 
+class KeepWithDuplicateTargetDeepSeekClient(RecordingDeepSeekClient):
+    def select_unique_candidates(self, candidates):
+        self.calls.append("select")
+        duplicate_target = candidates[0].window.window_id
+        return [
+            BoundaryDecision.model_validate(
+                {
+                    "windowId": item.window.window_id,
+                    "keep": True,
+                    "duplicateOf": duplicate_target if index == 1 else None,
+                    "startSegmentId": item.window.segment_ids[0],
+                    "endSegmentId": item.window.segment_ids[-1],
+                    "boundaryReason": "覆盖完整观点",
+                    "needsSetup": False,
+                }
+            )
+            for index, item in enumerate(candidates)
+        ]
+
+
+class InvalidBoundaryDeepSeekClient(RecordingDeepSeekClient):
+    def select_unique_candidates(self, candidates):
+        self.calls.append("select")
+        return [
+            BoundaryDecision.model_validate(
+                {
+                    "windowId": item.window.window_id,
+                    "keep": True,
+                    "duplicateOf": None,
+                    "startSegmentId": item.window.segment_ids[0],
+                    "endSegmentId": item.window.segment_ids[0],
+                    "boundaryReason": "模型给出了过短边界",
+                    "needsSetup": False,
+                }
+            )
+            for item in candidates
+        ]
+
+
 @pytest.mark.asyncio
 async def test_highlight_pipeline_runs_three_stages_and_builds_real_subtitles(db):
     project_token = await insert_project_with_transcript(db)
@@ -280,6 +319,47 @@ async def test_highlight_pipeline_keeps_candidate_with_missing_duplicate_target(
         assert 1 < len(result.candidates) <= 30
         assert [candidate.rank for candidate in result.candidates] == list(
             range(1, len(result.candidates) + 1)
+        )
+    finally:
+        async with db.pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM projects WHERE token = $1",
+                project_token,
+            )
+
+
+@pytest.mark.asyncio
+async def test_highlight_pipeline_ignores_duplicate_target_on_kept_candidate(db):
+    project_token = await insert_project_with_transcript(db, segment_count=16)
+    client = KeepWithDuplicateTargetDeepSeekClient()
+
+    try:
+        result = await HighlightPipeline(db, client).generate(project_token)
+
+        assert 1 < len(result.candidates) <= 30
+        assert [candidate.rank for candidate in result.candidates] == list(
+            range(1, len(result.candidates) + 1)
+        )
+    finally:
+        async with db.pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM projects WHERE token = $1",
+                project_token,
+            )
+
+
+@pytest.mark.asyncio
+async def test_highlight_pipeline_falls_back_when_boundary_is_invalid(db):
+    project_token = await insert_project_with_transcript(db, segment_count=16)
+    client = InvalidBoundaryDeepSeekClient()
+
+    try:
+        result = await HighlightPipeline(db, client).generate(project_token)
+
+        assert result.candidates
+        assert all(
+            60_000 <= candidate.end_ms - candidate.start_ms <= 180_000
+            for candidate in result.candidates
         )
     finally:
         async with db.pool.acquire() as conn:
