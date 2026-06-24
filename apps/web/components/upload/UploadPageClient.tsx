@@ -9,6 +9,8 @@ import styles from "./UploadPage.module.css";
 
 type UploadState = "empty" | "selected" | "creating" | "error";
 
+const steps = ["选择回放", "分析内容", "生成候选", "预览确认", "导出素材"];
+
 function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
@@ -96,11 +98,26 @@ export function UploadPageClient() {
       </header>
 
       <main className={styles.main}>
-        <section className={styles.card}>
+        <section className={styles.hero}>
           <div className={styles.intro}>
-            <h1>不用看完整场直播，也能找到高价值片段</h1>
+            <p className={styles.kicker}>Local-first AI clipping desk</p>
+            <h1 className={styles.heroTitle}>
+              不用看完整场直播，也能找到高价值片段
+            </h1>
             <p>把 1–2 小时的知识直播回放，变成几段可发布的视频素材。</p>
           </div>
+
+          <ol className={styles.progress} aria-label="处理流程">
+            {steps.map((step, index) => (
+              <li
+                className={index === 0 ? styles.progressActive : undefined}
+                key={step}
+              >
+                <span aria-hidden="true" />
+                {step}
+              </li>
+            ))}
+          </ol>
 
           <input
             ref={inputRef}
@@ -111,100 +128,102 @@ export function UploadPageClient() {
             onChange={(event) => chooseFile(event.target.files?.[0])}
           />
 
-          <div className={styles.actions}>
-            <div
-              aria-label="上传 MP4 回放"
-              className={`${styles.dropZone} ${
-                isDragging ? styles.dropZoneActive : ""
-              }`}
-              role="button"
-              tabIndex={0}
-              onClick={() => inputRef.current?.click()}
-              onDragEnter={(event) => {
-                event.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={(event) => {
-                event.preventDefault();
-                setIsDragging(false);
-              }}
-              onDragOver={(event) => {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "copy";
-                setIsDragging(true);
-              }}
-              onDrop={handleDrop}
-              onKeyDown={handleDropZoneKeyDown}
-            >
-              <span className={styles.dropIcon} aria-hidden="true">
-                {file && !isDragging ? "✓" : "↑"}
-              </span>
-              {isDragging ? (
-                <>
-                  <strong>松开即可选择</strong>
-                  <span>将替换当前选择的文件</span>
-                </>
-              ) : file ? (
-                <>
-                  <strong>{file.name}</strong>
-                  <span>{formatFileSize(file.size)}</span>
-                  <span>点击或拖入新文件替换</span>
-                </>
-              ) : (
-                <>
-                  <strong>拖拽 MP4 到这里</strong>
-                  <span>或点击选择本地文件</span>
-                </>
+          <div className={styles.card}>
+            <div className={styles.actions}>
+              <div
+                aria-label="上传 MP4 回放"
+                className={`${styles.dropZone} ${
+                  isDragging ? styles.dropZoneActive : ""
+                }`}
+                role="button"
+                tabIndex={0}
+                onClick={() => inputRef.current?.click()}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={(event) => {
+                  event.preventDefault();
+                  setIsDragging(false);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                  setIsDragging(true);
+                }}
+                onDrop={handleDrop}
+                onKeyDown={handleDropZoneKeyDown}
+              >
+                <span className={styles.dropIcon} aria-hidden="true">
+                  {file && !isDragging ? "✓" : "↑"}
+                </span>
+                {isDragging ? (
+                  <>
+                    <strong>松开即可选择</strong>
+                    <span>将替换当前选择的文件</span>
+                  </>
+                ) : file ? (
+                  <>
+                    <strong>{file.name}</strong>
+                    <span>{formatFileSize(file.size)}</span>
+                    <span>点击或拖入新文件替换</span>
+                  </>
+                ) : (
+                  <>
+                    <strong>拖拽 MP4 到这里</strong>
+                    <span>或点击选择本地文件</span>
+                  </>
+                )}
+              </div>
+
+              {error && (
+                <p className={styles.error} role="alert">
+                  {error}
+                </p>
+              )}
+
+              {extraction.phase === "error" && extraction.error && (
+                <p className={styles.error} role="alert">
+                  {extraction.error}
+                </p>
+              )}
+
+              {file && !isProcessing && extraction.phase !== "error" && (
+                <button
+                  className={styles.startButton}
+                  type="button"
+                  disabled={state === "creating"}
+                  onClick={startAnalysis}
+                >
+                  {state === "creating" ? "正在创建项目…" : "开始分析"}
+                </button>
+              )}
+
+              {extraction.phase === "error" && (
+                <button
+                  className={styles.startButton}
+                  type="button"
+                  onClick={() => {
+                    if (file) void startAnalysis();
+                  }}
+                >
+                  重试
+                </button>
+              )}
+
+              {isProcessing && (
+                <div className={styles.startButton}>
+                  {phaseLabel[extraction.phase] ?? "处理中…"}
+                </div>
               )}
             </div>
 
-            {error && (
-              <p className={styles.error} role="alert">
-                {error}
-              </p>
-            )}
-
-            {extraction.phase === "error" && extraction.error && (
-              <p className={styles.error} role="alert">
-                {extraction.error}
-              </p>
-            )}
-
-            {file && !isProcessing && extraction.phase !== "error" && (
-              <button
-                className={styles.startButton}
-                type="button"
-                disabled={state === "creating"}
-                onClick={startAnalysis}
-              >
-                {state === "creating" ? "正在创建项目…" : "开始分析"}
-              </button>
-            )}
-
-            {extraction.phase === "error" && (
-              <button
-                className={styles.startButton}
-                type="button"
-                onClick={() => {
-                  if (file) void startAnalysis();
-                }}
-              >
-                重试
-              </button>
-            )}
-
-            {isProcessing && (
-              <div className={styles.startButton}>
-                {phaseLabel[extraction.phase] ?? "处理中…"}
-              </div>
-            )}
+            <p className={styles.privacy}>
+              <strong>原视频不上传</strong>，只上传压缩音频用于 AI 分析。
+              <br />
+              推荐使用电脑端 <strong>Chrome / Edge</strong>。
+            </p>
           </div>
-
-          <p className={styles.privacy}>
-            <strong>原视频不上传</strong>，只上传压缩音频用于 AI 分析。
-            <br />
-            推荐使用电脑端 <strong>Chrome / Edge</strong>。
-          </p>
 
           <div className={styles.results}>
             <p className={styles.sectionLabel}>你会得到</p>

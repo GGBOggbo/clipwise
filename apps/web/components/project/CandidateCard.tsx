@@ -45,6 +45,7 @@ export function CandidateCard({
     >
       <div className={styles.meta}>
         <div>
+          <span className={styles.rank}>{candidate.rank}</span>
           <span>{candidate.type}</span>
           <strong>
             {candidate.recommendation === "reject"
@@ -71,7 +72,6 @@ export function CandidateCard({
       >
         <strong>{candidate.selectedTitle}</strong>
         <span>{candidate.summary}</span>
-        <q>{candidate.quote}</q>
       </button>
 
       <div className={styles.actions}>

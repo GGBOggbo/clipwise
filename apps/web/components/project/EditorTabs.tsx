@@ -30,7 +30,7 @@ function formatTime(milliseconds: number) {
 
 function SaveIndicator({ status }: { status: SaveStatus }) {
   const labels: Record<SaveStatus, string> = {
-    clean: "未修改",
+    clean: "已保存",
     dirty: "等待保存",
     saving: "保存中",
     saved: "已保存",
@@ -136,21 +136,37 @@ export function EditorTabs({
               />
             </label>
             <section className={styles.readOnly}>
-              <h3>推荐理由</h3>
-              <p>{candidate.recommendationReason}</p>
-              <h3>剪辑建议</h3>
-              <p>{candidate.editingNote || "暂无额外剪辑建议。"}</p>
-              <h3>边界说明</h3>
-              <p>{candidate.boundaryReason || "已按转写片段边界生成。"}</p>
+              <div className={styles.readOnlyHeader}>
+                <h3>AI 分析与剪辑指导</h3>
+                <span>辅助判断，不替代人工审片</span>
+              </div>
+              <dl className={styles.guidanceGrid}>
+                <div>
+                  <dt>推荐理由</dt>
+                  <dd>{candidate.recommendationReason}</dd>
+                </div>
+                <div>
+                  <dt>剪辑建议</dt>
+                  <dd>{candidate.editingNote || "暂无额外剪辑建议。"}</dd>
+                </div>
+                <div>
+                  <dt>边界说明</dt>
+                  <dd>{candidate.boundaryReason || "已按转写片段边界生成。"}</dd>
+                </div>
+                <div>
+                  <dt>风险提示</dt>
+                  <dd>
+                    {candidate.riskNotices.length
+                      ? candidate.riskNotices.join("；")
+                      : "无明显风险。"}
+                  </dd>
+                </div>
+              </dl>
               {candidate.needsSetup && (
-                <p>这段需要剪辑师补充开场或借用前文上下文。</p>
+                <p className={styles.setupNotice}>
+                  这段需要剪辑师补充开场或借用前文上下文。
+                </p>
               )}
-              <h3>风险提示</h3>
-              <p>
-                {candidate.riskNotices.length
-                  ? candidate.riskNotices.join("；")
-                  : "无明显风险。"}
-              </p>
             </section>
           </div>
         )}

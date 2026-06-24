@@ -7,6 +7,7 @@ export function ProjectProgress() {
     <ol className={styles.progress} aria-label="项目处理进度">
       {steps.map((step, index) => (
         <li
+          aria-current={index === 3 ? "step" : undefined}
           className={
             index < 3
               ? styles.progressDone

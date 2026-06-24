@@ -9,10 +9,21 @@ import type {
 
 export type CandidateSort = "rank" | "time";
 
+function getInitialCandidateId(project: ClipwiseProject) {
+  if (project.status !== "ready") return null;
+  return (
+    project.candidates.reduce<ClipCandidate | null>(
+      (best, candidate) =>
+        !best || candidate.rank < best.rank ? candidate : best,
+      null,
+    )?.id ?? null
+  );
+}
+
 export function useProjectWorkspace(initialProject: ClipwiseProject) {
   const [project, setProject] = useState(initialProject);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
-    null,
+    () => getInitialCandidateId(initialProject),
   );
   const [expandedCandidateId, setExpandedCandidateId] = useState<string | null>(
     null,

@@ -12,6 +12,11 @@ describe("UploadPageClient", () => {
     render(<UploadPageClient />);
 
     expect(
+      screen.getByRole("heading", {
+        name: "不用看完整场直播，也能找到高价值片段",
+      }).className,
+    ).toContain("heroTitle");
+    expect(
       screen.getByRole("button", { name: "上传 MP4 回放" }),
     ).toBeVisible();
     expect(
@@ -20,6 +25,11 @@ describe("UploadPageClient", () => {
     expect(
       screen.queryByRole("button", { name: "开始分析" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByText("选择回放")).toBeVisible();
+    expect(screen.getByText("分析内容")).toBeVisible();
+    expect(screen.getByText("生成候选")).toBeVisible();
+    expect(screen.getByText("预览确认")).toBeVisible();
+    expect(screen.getByText("导出素材")).toBeVisible();
   });
 
   it("选择有效文件后显示独立的开始分析按钮", async () => {

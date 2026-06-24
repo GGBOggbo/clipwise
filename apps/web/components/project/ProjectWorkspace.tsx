@@ -87,7 +87,10 @@ export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
 
   return (
     <div className={styles.shell}>
-      <ProjectHeader />
+      <ProjectHeader
+        candidateCount={workspace.project.candidates.length}
+        sourceFileName={workspace.project.sourceFileName}
+      />
       <ProjectProgress />
 
       <main className={styles.workspace}>
@@ -102,7 +105,8 @@ export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
           <div className={styles.clipInfo}>
             {candidate ? (
               <>
-                <div>
+                <div className={styles.clipMeta}>
+                  <span>当前片段</span>
                   <span>{candidate.type}</span>
                   <span>
                     {candidate.previewStatus === "previewed"
@@ -112,7 +116,13 @@ export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
                         : "尚未预览"}
                   </span>
                 </div>
-                <strong>{candidate.selectedTitle}</strong>
+                <div className={styles.clipTitle}>
+                  <strong>{candidate.selectedTitle}</strong>
+                  <span>
+                    {Math.round(candidate.durationMs / 1000)} 秒 ·{" "}
+                    {candidate.topicLabel}
+                  </span>
+                </div>
               </>
             ) : (
               <span>尚未选择片段</span>

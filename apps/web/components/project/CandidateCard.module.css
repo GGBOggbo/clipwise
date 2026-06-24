@@ -1,17 +1,33 @@
 .card {
-  padding: 15px;
-  border: 1px solid var(--color-border);
+  position: relative;
+  padding: 16px 16px 15px 18px;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--color-surface);
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease;
 }
 
 .card + .card {
-  margin-top: 10px;
+  margin-top: 9px;
 }
 
 .selected {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent);
+  border-color: color-mix(in oklch, var(--color-accent) 44%, var(--color-border));
+  background: var(--color-accent-quiet);
+}
+
+.selected::before {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 999px 999px 0;
+  background: var(--color-accent);
+  content: "";
 }
 
 .meta {
@@ -33,9 +49,21 @@
   font-size: 11px;
 }
 
+.meta .rank {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: white;
+  background: var(--color-accent);
+  font-weight: 750;
+}
+
 .meta span {
   color: var(--color-muted);
-  background: var(--color-bg);
+  background: var(--color-surface-muted);
 }
 
 .meta strong {
@@ -54,23 +82,23 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 6px;
+  margin-top: 7px;
 }
 
 .editorMeta span {
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: 1px solid color-mix(in oklch, var(--color-border) 82%, transparent);
   border-radius: 999px;
-  background: rgba(248, 250, 252, 0.92);
-  color: #475569;
+  background: color-mix(in oklch, var(--color-surface) 78%, var(--color-bg));
+  color: var(--color-muted);
   font-size: 12px;
   padding: 3px 8px;
 }
 
 .selectArea {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 10px;
   display: grid;
-  gap: 6px;
+  gap: 7px;
   border: 0;
   color: inherit;
   text-align: left;
@@ -79,31 +107,23 @@
 }
 
 .selectArea > strong {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.35;
+  letter-spacing: -0.015em;
 }
 
 .selectArea > span {
   display: -webkit-box;
   overflow: hidden;
   color: var(--color-muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
-.selectArea q {
-  padding-left: 10px;
-  border-left: 2px solid var(--color-border);
-  color: var(--color-text);
-  font-size: 12px;
-  font-style: italic;
-  line-height: 1.5;
-}
-
 .actions {
-  margin-top: 12px;
+  margin-top: 13px;
   display: flex;
   gap: 8px;
 }
@@ -111,7 +131,7 @@
 .actions button {
   padding: 7px 13px;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 7px;
   color: var(--color-text);
   background: var(--color-bg);
   cursor: pointer;
@@ -121,7 +141,7 @@
 .actions .primary {
   border-color: var(--color-text);
   color: white;
-  background: var(--color-text);
+  background: var(--color-charcoal);
 }
 
 .details {
@@ -129,7 +149,7 @@
   padding-top: 14px;
   display: grid;
   gap: 13px;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid color-mix(in oklch, var(--color-border) 80%, transparent);
 }
 
 .details h3 {

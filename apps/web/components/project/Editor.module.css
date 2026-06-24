@@ -1,5 +1,5 @@
 .tabs {
-  min-height: 47px;
+  min-height: 48px;
   display: flex;
   align-items: stretch;
   border-bottom: 1px solid var(--color-border);
@@ -26,13 +26,22 @@
   padding: 0 22px;
   display: flex;
   align-items: center;
+  gap: 6px;
   color: var(--color-muted);
   font-size: 12px;
 }
 
+.saveStatus::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-success);
+  content: "";
+}
+
 .content {
   min-height: 0;
-  padding: 24px 28px;
+  padding: 22px 28px 28px;
   overflow: auto;
   color: var(--color-muted);
   font-size: 13px;
@@ -40,23 +49,24 @@
 
 .form {
   display: grid;
-  gap: 16px;
+  gap: 15px;
 }
 
 .form label {
   display: grid;
-  gap: 6px;
+  gap: 7px;
   color: var(--color-muted);
   font-size: 12px;
+  font-weight: 650;
 }
 
 .form input,
 .form textarea,
 .subtitleLine textarea {
   width: 100%;
-  padding: 9px 11px;
+  padding: 10px 12px;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--color-text);
   background: white;
 }
@@ -67,15 +77,73 @@
 }
 
 .readOnly {
+  padding: 16px;
   display: grid;
-  gap: 5px;
+  gap: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--color-surface) 74%, var(--color-bg));
 }
 
-.readOnly h3 {
-  margin-top: 8px;
+.readOnlyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.readOnlyHeader h3 {
+  color: var(--color-text);
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+
+.readOnlyHeader span {
   color: var(--color-muted);
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: 12px;
+}
+
+.guidanceGrid {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.guidanceGrid div {
+  display: grid;
+  grid-template-columns: 104px 1fr;
+}
+
+.guidanceGrid div + div {
+  border-top: 1px solid var(--color-border);
+}
+
+.guidanceGrid dt,
+.guidanceGrid dd {
+  padding: 11px 12px;
+  line-height: 1.55;
+}
+
+.guidanceGrid dt {
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 750;
+  background: var(--color-accent-quiet);
+}
+
+.guidanceGrid dd {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.setupNotice {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  color: oklch(42% 0.11 68);
+  background: oklch(96% 0.03 72);
+  font-size: 13px;
 }
 
 .subtitleList {
