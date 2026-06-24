@@ -217,6 +217,50 @@
 | 2026-06-23 | DeepSeek strict tool 对 `$ref/$defs` 嵌套 schema 约束不足 | 1 | 生成工具 schema 时内联 `$ref/$defs`，再用 Pydantic 和业务校验兜底 |
 | 2026-06-23 | DeepSeek 语义去重偶发返回不一致 duplicate 决策 | 1 | 业务层对“指向未保留候选/指向更低分候选”的重复关系做本地保留纠偏 |
 | 2026-06-23 | Chrome 项目页视频显示不完整 | 1 | 定位为 video 元素高度按 16:9 宽度膨胀到约 536.9px，被 280px 播放器容器裁切；已修复为绝对定位填充容器并 contain 缩放 |
+| 2026-06-23 | 93 分钟视频两次在候选详情阶段失败 | 2 | 已确认上传、4 块 Groq ASR、transcript 合并和窗口评分成功；根因是任一空摘要/非原文金句会在批次全部完成后让整个任务失败，且不会触发详情批次重试 |
+| 2026-06-23 | Web 全量测试误删开发库真实项目 | 1 | 根因是 `create-project.test.ts` 删除所有非 demo 项目；已改为只删除测试自己创建的项目，并验证恢复项目在 Web 全量测试后仍保留 |
+
+## 会话：2026-06-23 90 分钟视频失败修复与恢复
+
+- **状态：** complete
+- 已完成：
+  - 定位用户 90 分钟视频失败不是上传/ASR：旧项目 ASR 已成功，失败在 DeepSeek 候选详情业务校验。
+  - 按 TDD 修复 `generate_candidate_details`：每个详情批次立即校验摘要非空与 quote 原文，失败只重试该批次最多 3 次。
+  - 按 TDD 修复失败页“重试”按钮：`ProjectStateView` 接收 `onRetry`，`ProjectWorkspace` 接入 regenerate API。
+  - 按 TDD 修复 DeepSeek 去重不一致：`keep=true` 时若带 `duplicateOf`，本地忽略 `duplicateOf`。
+  - 按 TDD 修复 DeepSeek 非法边界：边界微调过短/过长时回退到原始候选窗口。
+  - 修复危险测试：`create-project.test.ts` 不再删除开发库所有非 demo 项目。
+  - 使用本地原视频恢复新项目 `RhYJwCB_Vp1UqxDnGQYUAPHDgCRucQ9Q`，ASR 覆盖 `0–5413676ms`，生成 30 条真实候选。
+- 验证：
+  - Worker：80 条测试通过。
+  - Web：41 个测试文件、114 条测试通过。
+  - Web lint 通过。
+  - 数据库溯源：30 clips，rank 1–30 连续，bad_duration=0，bad_boundary=0，bad_quote=0，窗口评分审计 117 条。
+
+## 会话：2026-06-24 失败阶段断点重试修复
+
+- **状态：** complete
+- 用户问题：
+  - Web 端上传视频失败后点击“重试”是否会从头开始。
+  - 期望长视频失败后尽量从失败阶段继续，不能因为候选生成失败重新上传/ASR。
+- 已完成：
+  - 按 TDD 增加 regenerate API 断点重试测试：
+    - 有 transcript：创建 `generate_candidates`，返回 `retryFrom=candidates`。
+    - 无 transcript 但有 `compressed_audio`：创建 `transcribe_audio`，返回 `retryFrom=transcription`。
+    - 两者都没有：返回 `409 retry_not_available` 和重新上传提示。
+  - 修改 `/api/projects/[token]/regenerate`：
+    - failed 项目按中间产物选择断点。
+    - ready 项目继续走主动重新生成，保留 `regeneration_count` 限制。
+    - failed 断点恢复不增加 `regeneration_count`。
+  - 修改 Worker ASR 失败状态机：`no_audio` / `asr_chunk_failed` 会同步将项目置为 `failed`。
+  - 修改失败页 UI：按钮文案为“从失败阶段重试”，不可恢复时显示“请重新上传视频”的具体消息。
+  - 保留之前播放器 `AbortError` 修复：`play()` 被 `pause()` 打断时不再触发 Next Runtime Error。
+- 验证：
+  - Worker 全量：80 passed。
+  - Web 非真实集成：41 个测试文件、120 条测试 passed。
+  - Web lint 通过。
+  - `git diff --check` 通过。
+  - 已重启 Python Worker 使 ASR 失败状态机修复生效；Web `:3000` 与 Postgres 继续运行。启动恢复的 `interrupted` job 是测试残留 `sm-1`，无 project_token。
 
 ## 工作区状态
 

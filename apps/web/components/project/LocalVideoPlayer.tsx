@@ -52,7 +52,10 @@ export function LocalVideoPlayer({
   function startPreview() {
     if (!candidate || !videoRef.current) return;
     videoRef.current.currentTime = candidate.startMs / 1000;
-    void videoRef.current.play();
+    void videoRef.current.play().catch((error: unknown) => {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      console.error("播放本地片段失败", error);
+    });
   }
 
   function handleTimeUpdate() {

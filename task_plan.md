@@ -136,6 +136,10 @@
 | DeepSeek strict tool 对 `$ref/$defs` 嵌套 schema 约束不足 | 1 | 生成工具 schema 时内联引用，继续用 Pydantic 和业务校验兜底 |
 | DeepSeek 语义去重偶发返回不一致 duplicate 决策 | 1 | 业务层对指向未保留候选/更低分候选的重复关系做本地保留纠偏 |
 | Chrome 项目页视频显示不完整 | 1 | 将 video 绝对定位填满播放器容器，由 `object-fit: contain` 在框内缩放 |
+| 93 分钟视频候选详情生成失败 | 2 | 已定位：ASR 与评分成功，但任一详情的空摘要/非原文金句会让全部候选失败；待按批次业务校验并仅重试失败批次 |
+| Web 测试误删开发库真实项目 | 1 | `create-project.test.ts` 已改为只清理测试自己创建的项目；禁止再删除所有非 demo 项目 |
+| 失败页重试语义过粗 | 1 | `/regenerate` 改为按断点选择：有 transcript 则重跑候选，有 compressed_audio 则重跑 ASR，否则提示重新上传 |
+| ASR 失败后项目仍停留 transcribing | 1 | Worker 在 no_audio / asr_chunk_failed 时同步将项目置为 failed，确保失败页可进入断点重试 |
 
 ## 需求真源
 

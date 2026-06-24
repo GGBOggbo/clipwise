@@ -199,6 +199,26 @@
 - Phase 5.1 人工标注留出集路径为 `datasets/editor-recall-labels/`；该数据只用于后续校准，不得被 Worker 生产候选路径作为 mock 或 fallback 读取。
 - Phase 4.1 长视频分片的真正瓶颈是前端硬编码 20 分钟时长（`assumedDurationMs`），不是 worker 或 `calculateChunks`；修复方式是用 `<video>` 元素 probe 真实时长。
 - Phase 7 并发改造：`claim_next` 的 `FOR UPDATE SKIP LOCKED` 天然并发安全，无需额外锁；并发只需在 `run()` 里用 `asyncio.Semaphore` + `asyncio.create_task`，单进程内够用。多进程部署时再上 Redis 锁。默认 `WORKER_MAX_CONCURRENCY=2`，兼顾吞吐与 Groq/DeepSeek 限流。
+- 2026-06-23 用户两次上传同一段约 93 分钟视频，项目 `Shavbar...` 与 `pqtHf4...` 均在候选详情阶段失败：
+  - 视频时长记录为 `5,586,925ms`，音频被切为 4 块；4 次 Groq 请求均成功。
+  - 两个项目的 transcript 分别有 3468/3495 段，覆盖 `0–5,414,960ms`，说明上传、长音频分块、ASR 和合并均已完成。
+  - 失败 job 均为 `generate_candidates`，进度 85，`error_code=deepseek_invalid_response`，消息为“候选详情包含空摘要或非原文金句”。
+  - 根因是 `generate_candidate_details()` 只做 strict schema/ID 校验；“摘要非空、quote 必须为原文子串”的业务校验在所有详情批次完成后才执行。只要任一候选不合格，整个项目失败，且该业务错误不会触发 DeepSeek 的 3 次重试。
+  - 推荐修复：每个详情批次立即做业务校验，仅重试失败批次；不得自动伪造或替换 quote 来制造成功结果。
+- 2026-06-23 90 分钟恢复验证：
+  - 因 Web/Worker 测试共用开发库，旧 `create-project.test.ts` 的 `delete where token != demo-project` 误删了用户真实项目；已修为只清理测试自己创建的项目。
+  - 使用原始本地视频 `/Users/chk/Downloads/b1e452ef1605cca397334e2184419070.mp4` 恢复项目 `RhYJwCB_Vp1UqxDnGQYUAPHDgCRucQ9Q`；完整 MP4 没有上传。
+  - 源视频 AAC 中后段有解码损坏；ffmpeg/此前 ASR 均只能稳定覆盖到约 `5414s`，不是 `5587s` 末尾。
+  - 修复了三个真实长视频放大的 DeepSeek 容错点：详情 quote 非原文按批次重试、`keep=true` 时忽略自相矛盾的 `duplicateOf`、非法边界回退原始窗口。
+  - 最终项目 ready，生成 30 条真实候选、117 条窗口评分审计；检查通过：rank 连续、时长 60–180 秒、字幕边界一致、quote 为原文。
+- 2026-06-24 失败重试语义修复：
+  - `POST /api/projects/:token/regenerate` 不再对 failed 项目无脑创建 `regenerate_candidates`。
+  - failed 项目如果已有 `transcript_segments`，重试只创建 `generate_candidates`，复用 ASR 文本，不重新上传、不重新抽音频、不重新调用 Groq。
+  - failed 项目如果没有 transcript 但仍有 `project_files.kind='compressed_audio'`，重试创建 `transcribe_audio`，从 ASR 断点继续。
+  - failed 项目如果 transcript 和 compressed_audio 都没有，返回 `409 retry_not_available`，提示用户重新上传视频；不会假装可以恢复。
+  - `regeneration_count` 只用于 ready 项目的主动重新生成；failed 项目的断点恢复不消耗重新生成次数。
+  - Worker 在 `no_audio` 和 `asr_chunk_failed` 时会同步把项目状态置为 `failed`，避免任务失败但项目页仍停留在 `transcribing` 而没有重试入口。
+  - 项目失败页按钮文案改为“从失败阶段重试”；不可恢复时展示后端返回的重新上传提示。
 
 ---
 

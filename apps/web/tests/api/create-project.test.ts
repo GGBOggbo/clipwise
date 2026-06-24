@@ -1,13 +1,9 @@
-import { describe, it, expect, beforeEach, afterAll } from "vitest";
-import { ne, eq } from "drizzle-orm";
+import { describe, it, expect, afterAll } from "vitest";
+import { eq } from "drizzle-orm";
 import { POST } from "@/app/api/projects/route";
 import { db, schema } from "@/db/client";
 
 describe("POST /api/projects", () => {
-  beforeEach(async () => {
-    await db.delete(schema.projects).where(ne(schema.projects.token, "demo-project"));
-  });
-
   afterAll(async () => {
     await db
       .update(schema.projects)
@@ -26,6 +22,10 @@ describe("POST /api/projects", () => {
     expect(body.projectToken).toBeDefined();
     expect(typeof body.projectToken).toBe("string");
     expect(body.projectToken.length).toBeGreaterThanOrEqual(32);
+
+    await db
+      .delete(schema.projects)
+      .where(eq(schema.projects.token, body.projectToken));
   });
 
   it("缺少必需字段返回 400", async () => {

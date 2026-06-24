@@ -24,9 +24,11 @@ export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
   const workspace = useProjectWorkspace(initialProject);
   const router = useRouter();
   const [localFile, setLocalFile] = useState<File | null>(null);
+  const [retryError, setRetryError] = useState<string | null>(null);
   const candidate = workspace.selectedCandidate;
 
   const handleRegenerate = useCallback(async () => {
+    setRetryError(null);
     const resp = await fetch(
       `${
         process.env.NEXT_PUBLIC_API_BASE ?? ""
@@ -36,7 +38,14 @@ export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
     if (resp.ok) {
       const { taskId } = await resp.json();
       router.push(`/project/${workspace.project.token}/tasks/${taskId}`);
+      return;
     }
+    const body = await resp.json().catch(() => null);
+    setRetryError(
+      typeof body?.message === "string"
+        ? body.message
+        : "暂时无法从失败阶段重试，请重新上传视频。",
+    );
   }, [router, workspace.project.token]);
 
   const changePreviewStatus = useCallback(
@@ -67,7 +76,13 @@ export function ProjectWorkspace({ initialProject }: ProjectWorkspaceProps) {
   }
 
   if (workspace.project.status !== "ready") {
-    return <ProjectStateView status={workspace.project.status} />;
+    return (
+      <ProjectStateView
+        status={workspace.project.status}
+        onRetry={handleRegenerate}
+        retryError={retryError}
+      />
+    );
   }
 
   return (

@@ -32,7 +32,15 @@ const statusCopy: Record<
   },
 };
 
-export function ProjectStateView({ status }: { status: ProjectStatus }) {
+export function ProjectStateView({
+  status,
+  onRetry,
+  retryError,
+}: {
+  status: ProjectStatus;
+  onRetry?: () => void;
+  retryError?: string | null;
+}) {
   if (status === "ready") return null;
 
   if (status === "expired") {
@@ -50,7 +58,12 @@ export function ProjectStateView({ status }: { status: ProjectStatus }) {
     <div className={styles.stateView}>
       <h1>{copy.title}</h1>
       <p>{copy.description}</p>
-      {status === "failed" && <button type="button">重试</button>}
+      {retryError && <p>{retryError}</p>}
+      {status === "failed" && (
+        <button type="button" onClick={onRetry}>
+          从失败阶段重试
+        </button>
+      )}
     </div>
   );
 }
