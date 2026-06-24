@@ -50,6 +50,7 @@ function createCandidate(seed: CandidateSeed): ClipCandidate {
       },
     ],
     previewStatus: "not_previewed",
+    exportedAt: null,
     recommendation: seed.recommendation ?? "recommended",
     topicLabel: seed.topicLabel ?? seed.type,
     editingNote: seed.editingNote ?? "",

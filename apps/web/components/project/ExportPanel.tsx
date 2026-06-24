@@ -11,6 +11,7 @@ type ExportPanelProps = {
   file: File | null;
   videoConnected: boolean;
   onRequestPreview: () => void;
+  projectToken: string;
 };
 
 export function ExportPanel({
@@ -19,6 +20,7 @@ export function ExportPanel({
   file,
   videoConnected,
   onRequestPreview,
+  projectToken,
 }: ExportPanelProps) {
   const [confirming, setConfirming] = useState(false);
   const { progress, exportSingle, exportBatch, reset } = useExportClip();
@@ -31,7 +33,7 @@ export function ExportPanel({
 
   function runExport() {
     if (!file) return;
-    void exportSingle(candidate, file);
+    void exportSingle(candidate, file, projectToken);
   }
 
   function beginSingleExport() {
@@ -44,7 +46,7 @@ export function ExportPanel({
 
   function beginBatchExport() {
     if (!file) return;
-    void exportBatch(candidates.slice(0, 5), file);
+    void exportBatch(candidates.slice(0, 5), file, projectToken);
   }
 
   return (

@@ -39,6 +39,7 @@ describe("mapRowToProject", () => {
         needsSetup: false,
         rejectionReason: "none",
         previewStatus: "not_previewed" as const,
+        exportedAt: null,
       },
     ];
     const subtitleRows = [
@@ -90,6 +91,7 @@ describe("mapRowToProject", () => {
           rejectionReason: "none",
           subtitles: [{ id: "c1-sub-1", startMs: 0, endMs: 5000, text: "金句" }],
           previewStatus: "not_previewed",
+          exportedAt: null,
         },
       ],
     };
