@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from .highlight_models import ScoredWindow, WindowScoreAudit
+from .highlight_models import GlobalCalibration, ScoredWindow, WindowScoreAudit
 from .highlight_windows import overlap_ratio
-
 
 RECOMMENDATION_ORDER = {"strong": 0, "recommended": 1, "backup": 2, "reject": 3}
 HARD_REJECT_REASONS = {
@@ -174,3 +173,34 @@ def merge_window_score_audits(
             by_window[item.window.window_id] = _audit(item, "scored", "entered_recall_pool")
 
     return list(by_window.values())
+
+
+def stamp_calibration(
+    audits: list[WindowScoreAudit],
+    calibration_by_window: dict[str, GlobalCalibration],
+) -> list[WindowScoreAudit]:
+    """在 merge 完成后统一盖章校准字段，避免被多阶段 _audit 整条覆盖。
+
+    calibration_by_window 里有记录的窗口盖 5 个校准字段并标记
+    calibration_applied=True；没有的统一标记 calibration_applied=False。
+    """
+    stamped: list[WindowScoreAudit] = []
+    for audit in audits:
+        calibration = calibration_by_window.get(audit.window_id)
+        if calibration is None:
+            stamped.append(
+                audit.model_copy(update={"calibration_applied": False})
+            )
+            continue
+        stamped.append(
+            audit.model_copy(
+                update={
+                    "calibrated_recommendation": calibration.recommendation,
+                    "calibrated_final_score": calibration.final_score,
+                    "global_rank": calibration.global_rank,
+                    "calibration_note": calibration.calibration_note,
+                    "calibration_applied": True,
+                }
+            )
+        )
+    return stamped
