@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Protocol
 
@@ -13,6 +14,7 @@ from .highlight_models import (
     FinalCandidate,
     FinalCandidateInput,
     FinalSubtitle,
+    GlobalCalibration,
     HighlightPipelineResult,
     ScoredWindow,
     TranscriptSegment,
@@ -22,6 +24,7 @@ from .highlight_selection import (
     diversify_by_topic,
     merge_window_score_audits,
     select_editor_recall_pool,
+    stamp_calibration,
 )
 from .highlight_windows import (
     apply_boundary_decision,
@@ -41,6 +44,11 @@ class HighlightClient(Protocol):
         candidates: list[ScoredWindow],
     ) -> list[BoundaryDecision]: ...
 
+    def calibrate_globally(
+        self,
+        candidates: list[ScoredWindow],
+    ) -> list[GlobalCalibration]: ...
+
     def generate_candidate_details(
         self,
         candidates: list[FinalCandidateInput],
@@ -48,6 +56,11 @@ class HighlightClient(Protocol):
 
 
 ProgressCallback = Callable[[int, str], Awaitable[None] | None]
+
+logger = logging.getLogger(__name__)
+
+# 候选太少时跳过全局校准轮：拿不到相对判断的收益，不值得多一次调用。
+CALIBRATION_MIN_CANDIDATES = 12
 
 
 class HighlightGenerationError(RuntimeError):
@@ -227,6 +240,77 @@ class HighlightPipeline:
                 )
         return details_by_id
 
+    def _run_calibration(
+        self,
+        recall_pool: list[ScoredWindow],
+    ) -> tuple[list[ScoredWindow], dict[str, GlobalCalibration]]:
+        """全局校准轮(reduce)：只看压缩卡片，做跨批重排与档位校准。
+
+        候选过少时跳过；调用失败则降级用原始分数继续，审计会标记
+        calibration_applied=False。返回 (覆盖校准值后的 recall_pool, 校准字典)。
+        """
+        if len(recall_pool) <= CALIBRATION_MIN_CANDIDATES:
+            return recall_pool, {}
+
+        try:
+            calibration = self._validate_calibration(
+                recall_pool,
+                self._client.calibrate_globally(recall_pool),
+            )
+        except (DeepSeekError, HighlightGenerationError) as exc:
+            logger.warning(
+                "全局校准失败，降级使用原始分数: %s", exc, exc_info=True
+            )
+            return recall_pool, {}
+
+        calibration_by_window = {
+            item.window_id: item for item in calibration
+        }
+        calibrated = self._apply_calibration(recall_pool, calibration_by_window)
+        return calibrated, calibration_by_window
+
+    @staticmethod
+    def _validate_calibration(
+        candidates: list[ScoredWindow],
+        calibration: list[GlobalCalibration],
+    ) -> list[GlobalCalibration]:
+        candidate_ids = {
+            candidate.window.window_id for candidate in candidates
+        }
+        actual_ids = [item.window_id for item in calibration]
+        if len(actual_ids) != len(set(actual_ids)) or set(actual_ids) != candidate_ids:
+            raise HighlightGenerationError(
+                "deepseek_invalid_response",
+                "全局校准结果不完整",
+            )
+        ranks = sorted(item.global_rank for item in calibration)
+        if ranks != list(range(1, len(candidates) + 1)):
+            raise HighlightGenerationError(
+                "deepseek_invalid_response",
+                "全局校准 globalRank 不是 1 到 N 的排列",
+            )
+        return calibration
+
+    @staticmethod
+    def _apply_calibration(
+        recall_pool: list[ScoredWindow],
+        calibration_by_window: dict[str, GlobalCalibration],
+    ) -> list[ScoredWindow]:
+        """用校准值覆盖 recommendation/final_score，其余字段（含 window）不变。"""
+        return [
+            candidate.model_copy(
+                update={
+                    "recommendation": calibration_by_window[
+                        candidate.window.window_id
+                    ].recommendation,
+                    "final_score": calibration_by_window[
+                        candidate.window.window_id
+                    ].final_score,
+                }
+            )
+            for candidate in recall_pool
+        ]
+
     async def generate(
         self,
         project_token: str,
@@ -260,6 +344,8 @@ class HighlightPipeline:
                     "no_quality_candidates",
                     "没有达到召回要求的候选片段",
                 )
+
+            recall_pool, calibration_by_window = self._run_calibration(recall_pool)
 
             await self._progress(progress_callback, 65, "正在筛选候选片段")
             decisions = self._client.select_unique_candidates(recall_pool)
@@ -342,8 +428,11 @@ class HighlightPipeline:
                 )
             return HighlightPipelineResult(
                 candidates=final,
-                window_scores=merge_window_score_audits(
-                    scored, pool_audits, diversity_audits
+                window_scores=stamp_calibration(
+                    merge_window_score_audits(
+                        scored, pool_audits, diversity_audits
+                    ),
+                    calibration_by_window,
                 ),
             )
         except HighlightGenerationError:

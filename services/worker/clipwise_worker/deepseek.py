@@ -10,10 +10,12 @@ from pydantic import ValidationError
 
 from .highlight_models import (
     BoundaryDecision,
+    CalibrationResponse,
     CandidateDetail,
     CandidateWindow,
     DetailBatchResponse,
     FinalCandidateInput,
+    GlobalCalibration,
     ScoreBatchResponse,
     ScoredWindow,
     SelectionResponse,
@@ -242,6 +244,51 @@ class DeepSeekClient:
             expected_ids,
             [item.window_id for item in response.items],
         )
+        return response.items
+
+    def calibrate_globally(
+        self,
+        candidates: list[ScoredWindow],
+    ) -> list[GlobalCalibration]:
+        expected_ids = [candidate.window.window_id for candidate in candidates]
+        response = self._call_strict_tool(
+            function_name="submit_global_calibration",
+            description="提交同一场直播所有候选的全局校准结果",
+            response_model=CalibrationResponse,
+            system_prompt=(
+                "你拿到的是同一场直播全部候选的评分卡，不是正文。任务是在"
+                "全局视野下做相对判断：重新给出全局排序(globalRank 越小越靠前)、"
+                "校准档位(strong 是否被某一批发滥了)、修正跨批分数不可比。"
+                "只基于卡片字段判断，不得编造卡片外的信息。每个输入 windowId "
+                "必须恰好返回一次，globalRank 必须是 1 到 N 的排列，不得重复"
+                "或跳号。calibrationNote 用一句话说明相对其它候选的取舍理由。"
+            ),
+            payload={
+                "candidates": [
+                    {
+                        "windowId": item.window.window_id,
+                        "recommendation": item.recommendation,
+                        "finalScore": item.final_score,
+                        "type": item.type,
+                        "topicLabel": item.topic_label,
+                        "recommendationReason": item.recommendation_reason,
+                    }
+                    for item in candidates
+                ]
+            },
+        )
+        self._validate_exact_ids(
+            expected_ids,
+            [item.window_id for item in response.items],
+        )
+        ranks = sorted(item.global_rank for item in response.items)
+        expected_ranks = list(range(1, len(candidates) + 1))
+        if ranks != expected_ranks:
+            raise DeepSeekError(
+                "deepseek_invalid_response",
+                retryable=True,
+                message="globalRank 不是 1 到 N 的排列",
+            )
         return response.items
 
     def generate_candidate_details(

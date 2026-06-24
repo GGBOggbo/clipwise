@@ -5,10 +5,14 @@ import pytest
 from clipwise_worker.highlight_models import (
     BoundaryDecision,
     CandidateDetail,
+    GlobalCalibration,
+    ScoredWindow,
     TranscriptSegment,
     WindowScore,
 )
+from clipwise_worker.deepseek import DeepSeekError
 from clipwise_worker.highlight_pipeline import (
+    CALIBRATION_MIN_CANDIDATES,
     HighlightGenerationError,
     HighlightPipeline,
 )
@@ -69,6 +73,20 @@ class RecordingDeepSeekClient:
                 }
             )
             for window in windows
+        ]
+
+    def calibrate_globally(self, candidates):
+        self.calls.append("calibrate")
+        # 默认 passthrough：保持原档原分，rank 按输入顺序
+        return [
+            GlobalCalibration(
+                windowId=item.window.window_id,
+                recommendation=item.recommendation,
+                finalScore=item.final_score,
+                globalRank=index + 1,
+                calibrationNote="全局保持原序",
+            )
+            for index, item in enumerate(candidates)
         ]
 
     def select_unique_candidates(self, candidates):
@@ -438,3 +456,157 @@ def test_transcript_segment_contract_remains_strict():
                 "fake": True,
             }
         )
+
+
+# ---------------- 全局校准轮 (reduce) ----------------
+
+
+def _scored_window(window_id, start_ms, *, recommendation="recommended", final_score=75):
+    from clipwise_worker.highlight_models import CandidateWindow, ScoreDimensions
+
+    return ScoredWindow(
+        window=CandidateWindow(
+            window_id=window_id,
+            start_ms=start_ms,
+            end_ms=start_ms + 120_000,
+            segment_ids=[f"{window_id}-s1", f"{window_id}-s2"],
+            text=f"{window_id} 正文",
+        ),
+        recommendation=recommendation,
+        final_score=final_score,
+        dimensions=ScoreDimensions(
+            informationDensity=4, hookStrength=3, standaloneClarity=4, editability=4
+        ),
+        type="方法",
+        rejection_reason="none",
+        topic_label="测试主题",
+        recommendation_reason="步骤完整",
+    )
+
+
+def _recall_pool(count):
+    return [_scored_window(f"window-{i:04d}", i * 120_000) for i in range(count)]
+
+
+class CalibrationDeepSeekClient(RecordingDeepSeekClient):
+    """reduce 把所有候选升档为 strong、分数提到 95，用于验证校准覆盖。"""
+
+    def calibrate_globally(self, candidates):
+        self.calls.append("calibrate")
+        return [
+            GlobalCalibration(
+                windowId=item.window.window_id,
+                recommendation="strong",
+                finalScore=95,
+                globalRank=index + 1,
+                calibrationNote="全局升档",
+            )
+            for index, item in enumerate(candidates)
+        ]
+
+
+class FailingCalibrationDeepSeekClient(RecordingDeepSeekClient):
+    """reduce 始终失败，验证降级用原始分数继续。"""
+
+    def calibrate_globally(self, candidates):
+        self.calls.append("calibrate")
+        raise DeepSeekError(
+            "deepseek_request_failed", retryable=False, message="reduce 失败"
+        )
+
+
+def test_run_calibration_applies_when_pool_exceeds_threshold():
+    pool = _recall_pool(CALIBRATION_MIN_CANDIDATES + 1)
+    client = CalibrationDeepSeekClient()
+    # DB 在 _run_calibration 中不使用，传 None
+    pipeline = HighlightPipeline(database=None, client=client)  # type: ignore[arg-type]
+
+    calibrated, calibration_by_window = pipeline._run_calibration(pool)
+
+    assert client.calls == ["calibrate"]
+    assert len(calibration_by_window) == len(pool)
+    # 校准值覆盖了 recommendation/final_score，window 等字段保持不变
+    assert all(item.recommendation == "strong" for item in calibrated)
+    assert all(item.final_score == 95 for item in calibrated)
+    assert calibrated[0].window.window_id == pool[0].window.window_id
+
+
+def test_run_calibration_skips_when_pool_at_or_below_threshold():
+    pool = _recall_pool(CALIBRATION_MIN_CANDIDATES)
+    client = CalibrationDeepSeekClient()
+    pipeline = HighlightPipeline(database=None, client=client)  # type: ignore[arg-type]
+
+    calibrated, calibration_by_window = pipeline._run_calibration(pool)
+
+    # 不调用 reduce，原样返回，校准字典为空
+    assert client.calls == []
+    assert calibration_by_window == {}
+    assert calibrated is pool
+
+
+def test_run_calibration_falls_back_on_failure():
+    pool = _recall_pool(CALIBRATION_MIN_CANDIDATES + 1)
+    client = FailingCalibrationDeepSeekClient()
+    pipeline = HighlightPipeline(database=None, client=client)  # type: ignore[arg-type]
+
+    calibrated, calibration_by_window = pipeline._run_calibration(pool)
+
+    assert client.calls == ["calibrate"]
+    # 降级：保持原始分数，校准字典为空
+    assert calibration_by_window == {}
+    assert all(item.final_score == 75 for item in calibrated)
+
+
+@pytest.mark.asyncio
+async def test_highlight_pipeline_runs_reduce_and_calibrates_top_candidates(db):
+    # 50 segments (~12.5min) 产生 >12 个互不重叠窗口，触发 reduce
+    project_token = await insert_project_with_transcript(db, segment_count=50)
+    client = CalibrationDeepSeekClient()
+
+    try:
+        result = await HighlightPipeline(db, client).generate(project_token)
+
+        assert "calibrate" in client.calls
+        # reduce 把候选升为 strong，最终候选应反映校准后的档位
+        assert any(
+            candidate.recommendation == "strong" for candidate in result.candidates
+        )
+        # 审计里进入 recall pool 的窗口应被标记 calibration_applied=True
+        calibrated_audits = [
+            audit
+            for audit in result.window_scores
+            if audit.calibration_applied is True
+        ]
+        assert calibrated_audits
+        assert all(
+            audit.calibrated_recommendation == "strong"
+            for audit in calibrated_audits
+        )
+    finally:
+        async with db.pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM projects WHERE token = $1",
+                project_token,
+            )
+
+
+@pytest.mark.asyncio
+async def test_highlight_pipeline_skips_reduce_for_short_transcript(db):
+    # 16 segments 只产生少量窗口，reduce 被跳过
+    project_token = await insert_project_with_transcript(db, segment_count=16)
+    client = CalibrationDeepSeekClient()
+
+    try:
+        result = await HighlightPipeline(db, client).generate(project_token)
+
+        assert "calibrate" not in client.calls
+        # 所有审计标记为未校准
+        assert all(
+            audit.calibration_applied is False for audit in result.window_scores
+        )
+    finally:
+        async with db.pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM projects WHERE token = $1",
+                project_token,
+            )

@@ -1,11 +1,14 @@
 from clipwise_worker.highlight_models import (
     CandidateWindow,
+    GlobalCalibration,
     ScoreDimensions,
     ScoredWindow,
 )
 from clipwise_worker.highlight_selection import (
+    merge_window_score_audits,
     select_editor_recall_pool,
     diversify_by_topic,
+    stamp_calibration,
 )
 
 
@@ -93,3 +96,57 @@ def test_diversify_by_topic_prevents_single_topic_from_filling_top_thirty():
     assert sum(1 for item in selected if item.topic_label == "同一主题") == 4
     assert {"other-1", "other-2"}.issubset({item.window.window_id for item in selected})
     assert {audit.window_id: audit.selection_status for audit in audits}["same-4"] == "topic_diversity_skipped"
+
+
+def test_stamp_calibration_survives_merge_overwrite():
+    """核心缺陷回归：merge 整条覆盖后，校准字段必须靠 stamp 盖回来。"""
+    calibrated_window = scored("calibrated", 0, 120_000, recommendation="recommended", final_score=70)
+    uncalibrated_window = scored("plain", 200_000, 320_000, recommendation="backup", final_score=58)
+    candidates = [calibrated_window, uncalibrated_window]
+
+    # 模拟真实流水线：先产生 recall pool 审计，再产生 diversity 审计（同 window_id 整条覆盖）
+    pool_audits = select_editor_recall_pool(candidates)[1]
+    diversity_audits = diversify_by_topic(candidates, target_count=30)[1]
+
+    # merge 完成时，校准字段应全是 None（被 diversity 整条覆盖了）
+    merged = merge_window_score_audits(candidates, pool_audits, diversity_audits)
+    assert all(audit.calibration_applied is None for audit in merged)
+
+    calibration_by_window = {
+        "calibrated": GlobalCalibration(
+            windowId="calibrated",
+            recommendation="strong",
+            finalScore=92,
+            globalRank=1,
+            calibrationNote="全局最强，独立成片价值高",
+        )
+    }
+
+    stamped = stamp_calibration(merged, calibration_by_window)
+
+    by_id = {audit.window_id: audit for audit in stamped}
+    # 校准字段被正确盖章，不被 merge 覆盖
+    assert by_id["calibrated"].calibration_applied is True
+    assert by_id["calibrated"].calibrated_recommendation == "strong"
+    assert by_id["calibrated"].calibrated_final_score == 92
+    assert by_id["calibrated"].global_rank == 1
+    assert by_id["calibrated"].calibration_note == "全局最强，独立成片价值高"
+    # 原始分数仍保留（双份记录）
+    assert by_id["calibrated"].final_score == 70
+    # 未校准的窗口标记为 False
+    assert by_id["plain"].calibration_applied is False
+    assert by_id["plain"].calibrated_recommendation is None
+
+
+def test_stamp_calibration_marks_all_false_when_dict_empty():
+    """reduce 跳过或降级时（dict 为空），所有窗口 calibration_applied=False。"""
+    candidate = scored("only", 0, 120_000)
+    merged = merge_window_score_audits(
+        [candidate],
+        select_editor_recall_pool([candidate])[1],
+    )
+
+    stamped = stamp_calibration(merged, {})
+
+    assert stamped[0].calibration_applied is False
+    assert stamped[0].calibrated_recommendation is None

@@ -9,6 +9,7 @@ from clipwise_worker.highlight_models import (
     CandidateWindow,
     FinalCandidateInput,
     ScoreDimensions,
+    ScoredWindow,
 )
 
 
@@ -352,5 +353,145 @@ def test_score_windows_rejects_missing_or_unknown_window_ids():
 
     with pytest.raises(DeepSeekError) as exc_info:
         client.score_windows(candidate_windows())
+
+    assert exc_info.value.code == "deepseek_invalid_response"
+
+
+def scored_candidates(count=3):
+    dimensions = ScoreDimensions(
+        informationDensity=4,
+        hookStrength=3,
+        standaloneClarity=4,
+        editability=4,
+    )
+    return [
+        ScoredWindow(
+            window=CandidateWindow(
+                window_id=f"window-{index:04d}",
+                start_ms=index * 120_000,
+                end_ms=index * 120_000 + 90_000,
+                segment_ids=[f"s{index}-1", f"s{index}-2"],
+                text=f"第{index}段完整正文，这里只是reduce卡片不应带上的内容",
+            ),
+            recommendation="recommended",
+            final_score=70 + index,
+            dimensions=dimensions,
+            type="方法",
+            rejection_reason="none",
+            topic_label="AI 项目",
+            recommendation_reason="步骤完整，可独立理解",
+        )
+        for index in range(count)
+    ]
+
+
+def calibration_payload(*, ranks=None, window_ids=None):
+    count = len(ranks) if ranks else 3
+    ids = window_ids or [f"window-{index:04d}" for index in range(count)]
+    rank_list = ranks or list(range(1, count + 1))
+    return {
+        "items": [
+            {
+                "windowId": ids[index],
+                "recommendation": "strong",
+                "finalScore": 90 - index,
+                "globalRank": rank_list[index],
+                "calibrationNote": f"全局第{rank_list[index]}，相对其它候选更完整",
+            }
+            for index in range(count)
+        ]
+    }
+
+
+def test_calibrate_globally_forces_named_strict_tool_and_sends_cards_only():
+    sdk = FakeSdk([completion(calibration_payload(), name="submit_global_calibration")])
+    client = DeepSeekClient(
+        api_key="key",
+        base_url="https://api.deepseek.com/beta",
+        model="deepseek-v4-flash",
+        sdk_client=sdk,
+    )
+
+    result = client.calibrate_globally(scored_candidates())
+
+    assert [item.window_id for item in result] == [
+        "window-0000",
+        "window-0001",
+        "window-0002",
+    ]
+    assert result[0].global_rank == 1
+    assert result[0].recommendation == "strong"
+    kwargs = sdk.completions.calls[0]
+    assert kwargs["tool_choice"] == {
+        "type": "function",
+        "function": {"name": "submit_global_calibration"},
+    }
+    assert kwargs["tools"][0]["function"]["strict"] is True
+    # 卡片只发压缩字段，不泄漏正文
+    sent_candidate = json.loads(kwargs["messages"][1]["content"])["candidates"][0]
+    assert set(sent_candidate.keys()) == {
+        "windowId",
+        "recommendation",
+        "finalScore",
+        "type",
+        "topicLabel",
+        "recommendationReason",
+    }
+    assert "text" not in sent_candidate
+
+
+def test_calibrate_globally_rejects_rank_not_a_permutation():
+    # rank 1,1,3 不是 1..N 的排列
+    payload = calibration_payload(ranks=[1, 1, 3])
+    client = DeepSeekClient(
+        api_key="key",
+        base_url="https://api.deepseek.com/beta",
+        model="deepseek-v4-flash",
+        sdk_client=FakeSdk([completion(payload)] * 3),
+        sleeper=lambda _: None,
+    )
+
+    with pytest.raises(DeepSeekError) as exc_info:
+        client.calibrate_globally(scored_candidates())
+
+    assert exc_info.value.code == "deepseek_invalid_response"
+
+
+def test_calibrate_globally_retries_429_then_succeeds():
+    sleeps = []
+    sdk = FakeSdk(
+        [
+            FakeHttpError(429),
+            completion(calibration_payload(), name="submit_global_calibration"),
+        ]
+    )
+    client = DeepSeekClient(
+        api_key="key",
+        base_url="https://api.deepseek.com/beta",
+        model="deepseek-v4-flash",
+        sdk_client=sdk,
+        sleeper=sleeps.append,
+    )
+
+    result = client.calibrate_globally(scored_candidates())
+
+    assert result[0].final_score == 90
+    assert len(sdk.completions.calls) == 2
+    assert sleeps == [1]
+
+
+def test_calibrate_globally_rejects_missing_or_unknown_window_ids():
+    payload = calibration_payload()
+    payload["items"][0]["windowId"] = "window-unknown"
+    client = DeepSeekClient(
+        api_key="key",
+        base_url="https://api.deepseek.com/beta",
+        model="deepseek-v4-flash",
+        sdk_client=FakeSdk([completion(payload)] * 3),
+        sleeper=lambda _: None,
+    )
+
+    with pytest.raises(DeepSeekError) as exc_info:
+        client.calibrate_globally(scored_candidates())
 
     assert exc_info.value.code == "deepseek_invalid_response"

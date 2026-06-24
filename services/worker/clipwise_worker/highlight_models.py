@@ -104,6 +104,18 @@ class SelectionResponse(StrictModel):
     items: list[BoundaryDecision]
 
 
+class GlobalCalibration(StrictModel):
+    window_id: str = Field(alias="windowId")
+    recommendation: Recommendation
+    final_score: int = Field(alias="finalScore", ge=0, le=100)
+    global_rank: int = Field(alias="globalRank", ge=1)
+    calibration_note: str = Field(alias="calibrationNote")
+
+
+class CalibrationResponse(StrictModel):
+    items: list[GlobalCalibration]
+
+
 class FinalCandidateInput(StrictModel):
     window_id: str
     recommendation: Recommendation
@@ -185,6 +197,11 @@ class WindowScoreAudit(StrictModel):
     selection_status: SelectionStatus
     selection_reason: str
     duplicate_of_window_id: str | None = None
+    calibrated_recommendation: Recommendation | None = None
+    calibrated_final_score: int | None = Field(default=None, ge=0, le=100)
+    global_rank: int | None = Field(default=None, ge=1)
+    calibration_note: str | None = None
+    calibration_applied: bool | None = None
 
 
 class HighlightPipelineResult(StrictModel):
