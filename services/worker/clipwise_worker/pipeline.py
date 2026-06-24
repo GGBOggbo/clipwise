@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import time
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -83,6 +84,34 @@ async def mark_project_failed(database: Database, project_token: str) -> None:
         )
 
 
+async def purge_expired_projects(database: Database) -> int:
+    """删除已过期的项目（§15 隐私：7 天后删除承诺）。
+
+    先删残留的音频物理文件，再删 projects 行（关联表 cascade 清除）。
+    返回删除的项目数。幂等：文件不存在或无过期项目都安全。
+    """
+    async with database.pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT token FROM projects WHERE expires_at < NOW()",
+        )
+    if not rows:
+        return 0
+
+    for row in rows:
+        await delete_audio_files(database, row["token"])
+
+    tokens = [row["token"] for row in rows]
+    async with database.pool.acquire() as conn:
+        # 关联表（project_files/transcript_segments/clip_candidates/
+        # subtitle_lines/jobs/export_artifacts）均 cascade 删除
+        await conn.executemany(
+            "DELETE FROM projects WHERE token = $1",
+            [(token,) for token in tokens],
+        )
+    logger.info("过期清理：删除 %d 个项目", len(tokens))
+    return len(tokens)
+
+
 class Pipeline:
     def __init__(
         self,
@@ -93,6 +122,7 @@ class Pipeline:
         max_iterations: int | None = None,
         max_concurrency: int | None = None,
         candidate_service_factory: Callable[[WorkerConfig], Any] | None = None,
+        cleanup_interval_seconds: float = 1800.0,
     ) -> None:
         self._db = database
         self._repo = repo
@@ -104,6 +134,9 @@ class Pipeline:
         self._candidate_service_factory = (
             candidate_service_factory or self._build_candidate_service
         )
+        # 过期清理周期：默认 30 分钟扫一次（§15 隐私：7 天后删除）
+        self._cleanup_interval = cleanup_interval_seconds
+        self._last_cleanup_at = 0.0
 
     def _build_candidate_service(self, config: WorkerConfig) -> HighlightPipeline:
         if not config.deepseek_api_key:
@@ -162,6 +195,8 @@ class Pipeline:
                 await self._repo.update_progress(task_id, progress, "正在识别语音")
             except Exception as exc:
                 logger.exception("ASR 分块 %d 失败", i)
+                # §15 隐私：ASR 失败也要删除音频，不能留在磁盘上
+                await delete_audio_files(self._db, project_token)
                 await mark_project_failed(self._db, project_token)
                 await self._repo.mark_failed(
                     task_id, "asr_chunk_failed", "语音识别失败，请重试"
@@ -277,13 +312,27 @@ class Pipeline:
             logger.exception("任务 %s 失败", task_id)
             await self._repo.mark_failed(task_id, "processing_failed", str(exc))
 
+    async def _maybe_purge_expired(self) -> None:
+        """到达清理周期则扫一次过期项目。异常不中断主循环。"""
+        now = time.monotonic()
+        if now - self._last_cleanup_at < self._cleanup_interval:
+            return
+        self._last_cleanup_at = now
+        try:
+            await purge_expired_projects(self._db)
+        except Exception:
+            logger.exception("过期清理失败，下次周期重试")
+
     async def run(self) -> None:
         await self.recover_interrupted()
+        # 启动时立即清一次（_last_cleanup_at 初值为 0）
+        await self._maybe_purge_expired()
         semaphore = asyncio.Semaphore(self._max_concurrency)
         in_flight: set[asyncio.Task] = set()
         iterations = 0
 
         while self._max_iterations is None or iterations < self._max_iterations:
+            await self._maybe_purge_expired()
             task = await self._repo.claim_next()
             if task is None:
                 # 没有新任务：等一个在途任务完成，或空转 sleep

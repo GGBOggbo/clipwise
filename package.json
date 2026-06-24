@@ -4,6 +4,8 @@
   "packageManager": "pnpm@10.33.2",
   "scripts": {
     "dev": "pnpm --filter @clipwise/web dev",
+    "dev:all": "concurrently -n web,worker -c blue,green \"pnpm dev\" \"pnpm worker:run\"",
+    "worker:run": "cd services/worker && .venv/bin/python -m clipwise_worker.main",
     "build": "pnpm --filter @clipwise/web build",
     "lint": "pnpm --filter @clipwise/web lint",
     "test": "pnpm --filter @clipwise/web test",
@@ -13,6 +15,9 @@
     "db:generate": "pnpm --filter @clipwise/web exec drizzle-kit generate",
     "db:migrate": "pnpm --filter @clipwise/web exec drizzle-kit migrate",
     "db:seed": "pnpm --filter @clipwise/web exec tsx db/seed.ts",
-    "worker": "echo 'Run from services/worker: uv run python -m clipwise_worker.main'"
+    "worker": "echo 'Use pnpm dev:all (web+worker) or pnpm worker:run (worker only)'"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
   }
 }

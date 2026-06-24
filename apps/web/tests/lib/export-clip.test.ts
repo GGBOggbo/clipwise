@@ -49,6 +49,18 @@ describe("buildSrtContent", () => {
     expect(srt).not.toContain("片段之前");
   });
 
+  it("保留跨越片段起点的字幕，start clamp 到 0", () => {
+    // 字幕从 28000 开始、35000 结束；片段从 30000 开始
+    // 这句被切到一半，必须保留，start 应是 0 而非负数
+    const srt = buildSrtContent(
+      [subtitle("straddle", 28_000, 35_000, "被切到一半的开头")],
+      30_000,
+    );
+
+    expect(srt).toContain("被切到一半的开头");
+    expect(srt).toContain("00:00:00,000 --> 00:00:05,000");
+  });
+
   it("空字幕返回空字符串", () => {
     expect(buildSrtContent([], 0)).toBe("");
   });

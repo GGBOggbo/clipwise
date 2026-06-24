@@ -189,5 +189,14 @@ async def test_transcribe_job_fails_on_groq_error(db, worker_config):
     assert job["error_code"] == "asr_chunk_failed"
     assert project_status == "failed"
 
+    # §15 隐私：ASR 失败也要删除音频，project_files 记录应被清空
+    async with db.pool.acquire() as conn:
+        remaining_files = await conn.fetchval(
+            "SELECT count(*) FROM project_files WHERE project_token = $1 "
+            "AND kind = 'compressed_audio'",
+            project_token,
+        )
+    assert remaining_files == 0
+
     async with db.pool.acquire() as conn:
         await conn.execute("DELETE FROM projects WHERE token = $1", project_token)

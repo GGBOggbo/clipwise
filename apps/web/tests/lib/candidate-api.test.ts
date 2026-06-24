@@ -34,7 +34,7 @@ describe("patchCandidate", () => {
     await patchCandidate("token-x", candidate);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3000/api/projects/token-x/candidates/c1",
+      "/api/projects/token-x/candidates/c1",
       expect.objectContaining({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

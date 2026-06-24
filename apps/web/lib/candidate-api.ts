@@ -1,6 +1,7 @@
 import type { ClipCandidate } from "@clipwise/shared";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:3000";
+// 客户端调用：用相对路径，浏览器自动用当前 origin，避免硬编码端口。
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
 
 export async function patchCandidate(
   token: string,

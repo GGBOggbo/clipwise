@@ -24,20 +24,19 @@ function formatSrtTime(ms: number): string {
  * subtitles 的 startMs/endMs 是源视频的绝对时间；
  * clipStartMs 是当前片段在源视频中的起点。
  * 输出的时间码是相对片段起点的（减去 clipStartMs），
- * 落在片段范围之外的字幕会被跳过。
+ * 起点在片段之前但结尾在片段内的字幕会被保留（开头 clamp 到 0），
+ * 完全在片段之前的才跳过。
  */
 export function buildSrtContent(
   subtitles: SubtitleLine[],
   clipStartMs: number,
 ): string {
-  const inside = subtitles.filter(
-    (s) => s.endMs > clipStartMs && s.startMs >= clipStartMs,
-  );
+  const inside = subtitles.filter((s) => s.endMs > clipStartMs);
   if (inside.length === 0) return "";
 
   const blocks: string[] = [];
   inside.forEach((subtitle, index) => {
-    const start = subtitle.startMs - clipStartMs;
+    const start = Math.max(0, subtitle.startMs - clipStartMs);
     const end = subtitle.endMs - clipStartMs;
     blocks.push(
       [
